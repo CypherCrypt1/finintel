@@ -11,6 +11,7 @@ scorecard and lists it under "Not collected".
 from __future__ import annotations
 
 import io
+import os
 import time
 from pathlib import Path
 
@@ -26,11 +27,11 @@ class ConnectorError(RuntimeError):
     pass
 
 
-def _get(url: str, params: dict | None = None, retries: int = 2) -> requests.Response:
+def _get(url: str, params: dict | None = None, retries: int = 2, timeout: int = TIMEOUT) -> requests.Response:
     last = None
     for attempt in range(retries + 1):
         try:
-            r = requests.get(url, params=params, headers=UA, timeout=TIMEOUT)
+            r = requests.get(url, params=params, headers=UA, timeout=timeout)
             if r.status_code == 200:
                 return r
             last = f"HTTP {r.status_code}: {r.text[:200]}"
@@ -41,14 +42,64 @@ def _get(url: str, params: dict | None = None, retries: int = 2) -> requests.Res
 
 
 # --------------------------------------------------------------------- FRED
+FRED_START = (pd.Timestamp.today() - pd.Timedelta(days=6 * 365)).strftime("%Y-%m-%d")
+
+
 def fred(series_id: str) -> pd.Series:
-    """Daily/weekly FRED series via the public CSV endpoint (no key needed)."""
-    r = _get("https://fred.stlouisfed.org/graph/fredgraph.csv", {"id": series_id})
-    df = pd.read_csv(io.StringIO(r.text))
-    date_col = "observation_date" if "observation_date" in df.columns else df.columns[0]
-    s = pd.to_numeric(df[series_id], errors="coerce")
-    s.index = pd.to_datetime(df[date_col])
-    return s.dropna().rename(series_id)
+    """FRED series. Uses the official API if FRED_API_KEY is set (free key, most reliable),
+    otherwise the public CSV endpoint. Treasury yields fall back to treasury.gov."""
+    errors = []
+    key = os.environ.get("FRED_API_KEY", "").strip()
+    if key:
+        try:
+            j = _get("https://api.stlouisfed.org/fred/series/observations",
+                     {"series_id": series_id, "api_key": key, "file_type": "json",
+                      "observation_start": FRED_START}, retries=1, timeout=60).json()
+            obs = j["observations"]
+            s = pd.Series(pd.to_numeric([o["value"] for o in obs], errors="coerce"),
+                          index=pd.to_datetime([o["date"] for o in obs]))
+            return s.dropna().rename(series_id)
+        except Exception as e:
+            errors.append(f"API: {e}")
+    try:
+        r = _get("https://fred.stlouisfed.org/graph/fredgraph.csv", {"id": series_id, "cosd": FRED_START},
+                 retries=1, timeout=60)
+        df = pd.read_csv(io.StringIO(r.text))
+        date_col = "observation_date" if "observation_date" in df.columns else df.columns[0]
+        s = pd.to_numeric(df[series_id], errors="coerce")
+        s.index = pd.to_datetime(df[date_col])
+        return s.dropna().rename(series_id)
+    except Exception as e:
+        errors.append(f"CSV: {e}")
+    if series_id in TREASURY_FALLBACK:
+        try:
+            return treasury_yield(*TREASURY_FALLBACK[series_id]).rename(series_id)
+        except Exception as e:
+            errors.append(f"Treasury: {e}")
+    raise ConnectorError(f"FRED {series_id} unavailable ({'; '.join(errors)[:300]})")
+
+
+# FRED series that US Treasury also publishes: (curve type, column)
+TREASURY_FALLBACK = {"DFII10": ("daily_treasury_real_yield_curve", "10 yr"),
+                     "DGS2": ("daily_treasury_yield_curve", "2 yr"),
+                     "DGS10": ("daily_treasury_yield_curve", "10 yr")}
+
+
+def treasury_yield(curve: str, column: str, years: int = 4) -> pd.Series:
+    """Daily Treasury par / real yield curve from home.treasury.gov, one CSV per year."""
+    parts = []
+    this_year = pd.Timestamp.today().year
+    for y in range(this_year - years + 1, this_year + 1):
+        url = (f"https://home.treasury.gov/resource-center/data-chart-center/interest-rates/"
+               f"daily-treasury-rates.csv/{y}/all")
+        r = _get(url, {"type": curve, "field_tdr_date_value": y, "page": "", "_format": "csv"}, retries=1, timeout=60)
+        df = pd.read_csv(io.StringIO(r.text))
+        cols = {c.lower().strip(): c for c in df.columns}
+        if column not in cols:
+            raise ConnectorError(f"Treasury {curve} {y}: no column '{column}' in {list(df.columns)}")
+        parts.append(pd.Series(pd.to_numeric(df[cols[column]], errors="coerce").values,
+                               index=pd.to_datetime(df[cols["date"]])))
+    return pd.concat(parts).dropna().sort_index()
 
 
 def fred_net_liquidity() -> pd.Series:

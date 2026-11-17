@@ -23,12 +23,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Run engine
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}   # optional; add it under Settings > Secrets > Actions
         run: |
           mkdir -p site
           python -m finintel.run --out site/index.html --db data/finintel.sqlite
