@@ -87,10 +87,15 @@ def ser(s: pd.Series, n: int = 520, nd: int = 4) -> dict:
 
 
 # --------------------------------------------------------------- World Bank
+_WB_DOWN = [False]
+
+
 def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
     """World Bank WDI; falls back to DBnomics (public mirror of WDI) when the World Bank API fails."""
     errs = []
     try:
+        if _WB_DOWN[0]:
+            raise ConnectorError("World Bank API unreachable earlier in this run; skipped")
         url = f"https://api.worldbank.org/v2/country/{';'.join(iso3)}/indicator/{code}"
         j = get(url, {"format": "json", "per_page": 1000, "date": "2005:2026"}, timeout=45, retries=0).json()
         if isinstance(j, list) and len(j) > 1 and j[1]:
@@ -98,6 +103,7 @@ def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
             return pd.DataFrame(rows, columns=["iso3", "year", "value"]), {"published": j[0].get("lastupdated"), "via": "World Bank API"}
         errs.append("World Bank API: empty")
     except Exception as e:
+        _WB_DOWN[0] = True
         errs.append(f"World Bank API: {e}")
     try:
         j = get("https://api.db.nomics.world/v22/series/WB/WDI", {"dimensions": json.dumps({"indicator": [code]}), "observations": 1, "limit": 1000},
