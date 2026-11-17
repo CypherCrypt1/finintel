@@ -174,6 +174,7 @@ def main(argv=None):
     ap.add_argument("--db", default=str(ROOT / "data" / "finintel.sqlite"))
     ap.add_argument("--offline", action="store_true", help="rebuild from the database without network access")
     ap.add_argument("--no-log", action="store_true", help="do not log outlooks or append score history")
+    ap.add_argument("--no-global", action="store_true", help="skip the global modules (countries, FX, equities, trade, companies)")
     args = ap.parse_args(argv)
     site = Path(args.site)
     data_dir = Path(args.db).parent
@@ -314,6 +315,22 @@ def main(argv=None):
         shutil.copytree(ref_dir, site / "reference", dirs_exist_ok=True)
     (site / "data").mkdir(exist_ok=True)
     (site / "data" / "sovereign.json").write_text(json.dumps(results, default=str, separators=(",", ":")))
+    # global modules (countries, equities, currencies, commodities, fiscal, trade, flows, companies, credit, relationships)
+    gpath = data_dir / "global.json"
+    if not args.no_global:
+        if args.offline and gpath.exists():
+            shutil.copy(gpath, site / "data" / "global.json")
+        else:
+            from . import global_build
+            g = global_build.build(store, offline=args.offline, extra={"DFII10": loader.cache.get("fred:DFII10")}, calendar=calendar)
+            txt = json.dumps(g, default=str, separators=(",", ":")).replace("NaN", "null")
+            (site / "data" / "global.json").write_text(txt)
+            if not args.offline:
+                gpath.write_text(txt)
+            if g["errors"]:
+                print(f"Global source errors ({len(g['errors'])}):")
+                for k, v in list(g["errors"].items())[:80]:
+                    print(f"  {k}: {v[:160]}")
     if loader.errors:
         print("Feeds that failed (drivers left out):")
         for k, v in loader.errors.items():

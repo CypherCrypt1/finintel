@@ -37,7 +37,7 @@ jobs:
         run: |
           git config user.name "finintel-bot"
           git config user.email "finintel-bot@users.noreply.github.com"
-          git add data/finintel.sqlite data/last_results.json data/score_history.csv
+          git add data/finintel.sqlite data/last_results.json data/score_history.csv data/global.json
           git diff --cached --quiet || git commit -m "Daily data $(date -u +%F)"
           git pull --rebase -q origin main && git push
       - uses: actions/configure-pages@v5

@@ -75,7 +75,7 @@ def test_missing_driver_and_contested_score():
 def test_end_to_end(offline, tmp_path):
     site = tmp_path / "site"
     run.main(["--site", str(site), "--manual", str(Path(__file__).resolve().parent.parent / "manual_inputs"),
-              "--db", str(tmp_path / "t.sqlite")])
+              "--db", str(tmp_path / "t.sqlite"), "--no-global"])
     res = json.loads((site / "data" / "sovereign.json").read_text())
     assert {a["symbol"] for a in res["assets"]} == {"XAU", "BTC"}
     for a in res["assets"]:
@@ -91,6 +91,6 @@ def test_end_to_end(offline, tmp_path):
     assert (site / "index.html").exists() and (site / "reference" / "calendar.json").exists()
     # second run compares against the first
     run.main(["--site", str(site), "--manual", str(Path(__file__).resolve().parent.parent / "manual_inputs"),
-              "--db", str(tmp_path / "t.sqlite")])
+              "--db", str(tmp_path / "t.sqlite"), "--no-global"])
     res2 = json.loads((site / "data" / "sovereign.json").read_text())
     assert res2["assets"][0]["what_changed"]["basis"] == "previous run"
