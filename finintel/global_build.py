@@ -151,7 +151,7 @@ def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: d
             infl_src = {"period": cl[ckk]["period"], "us_period": cl["us"]["period"], "source": cl[ckk].get("source", "OECD"), "kind": "latest month, y/y"}
         if infl is None and imf_df is not None:
             iso = "EURO" if a == "EUR" else next(x["iso3"] for x in G.COUNTRIES if x["key"] == ck)
-            d = imf_df[(imf_df.code == "PCPIPCH") & (imf_df.year == YEAR - 1)]
+            d = imf_df[(imf_df.code == "PCPIPCH") & (imf_df.year == YEAR)]   # IMF estimate for the year in progress
             vi = d[d.iso3 == iso].value
             if a == "EUR" and vi.empty:
                 vi = d[d.iso3.isin(["DEU", "FRA"])].value
@@ -160,7 +160,7 @@ def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: d
             infl = None if vi.empty else round(float(vi.iloc[0]), 2)
             infl_us = None if vu.empty else round(float(vu.iloc[0]), 2)
             if infl is not None:
-                infl_src = {"period": str(YEAR - 1), "source": "IMF WEO", "kind": "annual average"}
+                infl_src = {"period": str(YEAR), "source": "IMF WEO", "kind": f"IMF estimate for {YEAR} average"}
         if infl is None:  # World Bank CPI fallback (latest year, may lag)
             iso_wb = "EMU" if a == "EUR" else next(x["iso3"] for x in G.COUNTRIES if x["key"] == ck)
             w, wu = wb.get("FP.CPI.TOTL.ZG", {}).get(iso_wb, {}).get("latest"), wb.get("FP.CPI.TOTL.ZG", {}).get("USA", {}).get("latest")
