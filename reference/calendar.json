@@ -1,6 +1,100 @@
-{"note": "Hand-maintained list of scheduled events. Add rows as dates are confirmed by the issuing institution.",
+{
+ "note": "Hand-maintained list of scheduled events. Add rows as dates are confirmed by the issuing institution.",
  "events": [
-  {"date": "2026-12-08", "end": "2026-12-09", "event": "FOMC meeting (Federal Reserve)", "region": "US", "importance": "High",
+  {
+   "date": "2026-12-02",
+   "event": "RBI Monetary Policy Committee decision",
+   "region": "India",
+   "importance": "Medium",
+   "why": "Repo rate after October's 25 bp hike to 5.50%; rupee and Indian bond yields",
+   "source": "Reserve Bank of India, MPC schedule 2026-27",
+   "url": "https://rbi.org.in/SCRIPTS/BS_PressReleaseDisplay.aspx?prid=62422",
+   "status": "Confirmed",
+   "end": "2026-12-04"
+  },
+  {
+   "date": "2026-12-08",
+   "end": "2026-12-09",
+   "event": "FOMC meeting (Federal Reserve)",
+   "region": "US",
+   "importance": "High",
    "why": "a 25 bp hike is fully priced; guidance on 2027 matters more for gold and Bitcoin than the decision itself",
-   "source": "BabyPips, 13 Nov 2026 (CME FedWatch)", "url": "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"}
- ]}
+   "source": "BabyPips, 13 Nov 2026 (CME FedWatch)",
+   "url": "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"
+  },
+  {
+   "date": "2026-12-09",
+   "event": "Bank of Canada rate announcement",
+   "region": "Canada",
+   "importance": "Medium",
+   "why": "Policy rate 2.25%; Canadian dollar and commodity-currency sentiment",
+   "source": "Bank of Canada, 2026 schedule",
+   "url": "https://www.bankofcanada.ca/2025/08/bank-canada-publishes-2026-schedule-policy-interest-rate-announcements-other-major-publications/",
+   "status": "Confirmed"
+  },
+  {
+   "date": "2026-12-10",
+   "event": "Swiss National Bank monetary policy assessment",
+   "region": "Switzerland",
+   "importance": "Medium",
+   "why": "Policy rate 0%; franc strength and safe-haven flows",
+   "source": "Swiss National Bank, time schedule",
+   "url": "https://www.snb.ch/en/ifor/media/id/media_events",
+   "status": "Confirmed"
+  },
+  {
+   "date": "2026-12-16",
+   "event": "ECB monetary policy decision (with staff projections)",
+   "region": "Euro area",
+   "importance": "High",
+   "why": "Euro, Bund yields and the dollar index; new 2027 projections",
+   "source": "European Central Bank calendar",
+   "url": "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html",
+   "status": "Confirmed",
+   "end": "2026-12-17"
+  },
+  {
+   "date": "2026-12-17",
+   "event": "Bank of England MPC announcement",
+   "region": "United Kingdom",
+   "importance": "High",
+   "why": "Bank Rate decision; sterling and gilts",
+   "source": "Bank of England, MPC dates 2026",
+   "url": "https://www.bankofengland.co.uk/news/2025/september/monetary-policy-committee-dates-for-2026",
+   "status": "Confirmed"
+  },
+  {
+   "date": "2026-12-17",
+   "event": "Bank of Japan monetary policy meeting (decision)",
+   "region": "Japan",
+   "importance": "High",
+   "why": "Further tightening would strengthen the yen and can trigger carry-trade unwinds across risk assets",
+   "source": "Bank of Japan, MPM schedule",
+   "url": "https://www.boj.or.jp/en/mopo/mpmsche_minu/index.htm",
+   "status": "Confirmed",
+   "end": "2026-12-18"
+  },
+  {
+   "date": "2027-01-21",
+   "event": "Bank of Japan monetary policy meeting (decision, with Outlook Report)",
+   "region": "Japan",
+   "importance": "High",
+   "why": "Yen and global carry trades",
+   "source": "Bank of Japan, 2027 MPM schedule",
+   "url": "https://www.boj.or.jp/en/mopo/mpmsche_minu/index.htm",
+   "status": "Confirmed",
+   "end": "2027-01-22"
+  },
+  {
+   "date": "2027-02-03",
+   "event": "RBI Monetary Policy Committee decision",
+   "region": "India",
+   "importance": "Medium",
+   "why": "Repo rate and stance",
+   "source": "Reserve Bank of India, MPC schedule 2026-27",
+   "url": "https://rbi.org.in/SCRIPTS/BS_PressReleaseDisplay.aspx?prid=62422",
+   "status": "Confirmed",
+   "end": "2027-02-05"
+  }
+ ]
+}

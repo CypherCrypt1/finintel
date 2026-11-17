@@ -257,7 +257,6 @@ CAL_IMPORTANCE = [
     ("Employment Situation", "High", "Payrolls and unemployment; the main labour-market release"),
     ("Gross Domestic Product", "High", "Output growth and the GDP price index"),
     ("Personal Income and Outlays", "High", "PCE inflation, the Fed's preferred measure"),
-    ("FOMC Press Release", "High", "Federal Reserve policy decision"),
     ("Producer Price Index", "Medium", "Pipeline inflation"),
     ("Advance Monthly Sales for Retail", "Medium", "Consumer spending"),
     ("Job Openings and Labor Turnover", "Medium", "Labour demand (JOLTS)"),
@@ -285,7 +284,9 @@ def collect_calendar(c) -> dict:
                                                    "include_release_dates_with_no_data": "true", "limit": 1000, "sort_order": "asc"}, timeout=40).json())
         for r in (j or {}).get("release_dates", []):
             nm = r.get("release_name", "")
-            hit = next((x for x in CAL_IMPORTANCE if nm.startswith(x[0]) or x[0] in nm), None)
+            if re.search(r"by County|by State|by Industry|Research |Excluding|^State |Debt to|Ratios", nm):
+                continue  # variants of the same release: keep the headline one only
+            hit = next((x for x in CAL_IMPORTANCE if nm.startswith(x[0])), None)
             if not hit or not hit[1]:
                 continue
             events.append({"date": r["date"], "event": nm, "region": "US", "importance": hit[1], "why": hit[2],
