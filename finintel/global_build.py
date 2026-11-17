@@ -38,7 +38,7 @@ class Collector:
 
     def try_(self, sid, fn):
         src = sid.split(":")[0]
-        if self.fails.get(src, 0) >= 4:
+        if self.fails.get(src, 0) >= (8 if src == "wb" else 4):
             self.errors[sid] = "skipped: source failed 4 times in a row this run"
             return None
         try:
@@ -147,6 +147,11 @@ def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: d
             vu = d[d.iso3 == "USA"].value
             infl = None if vi.empty else round(float(vi.iloc[0]), 2)
             infl_us = None if vu.empty else round(float(vu.iloc[0]), 2)
+        if infl is None:  # World Bank CPI fallback (latest year, may lag)
+            iso_wb = "EMU" if a == "EUR" else next(x["iso3"] for x in G.COUNTRIES if x["key"] == ck)
+            w, wu = wb.get("FP.CPI.TOTL.ZG", {}).get(iso_wb, {}).get("latest"), wb.get("FP.CPI.TOTL.ZG", {}).get("USA", {}).get("latest")
+            if w and wu:
+                infl, infl_us = round(w["value"], 2), round(wu["value"], 2)
         ppp_iso = "EMU" if a == "EUR" else next(x["iso3"] for x in G.COUNTRIES if x["key"] == ck)
         ppp = wb.get("PA.NUS.PPPC.RF", {}).get(ppp_iso, {}).get("latest")
         strength.append({"ccy": a, "name": G.CURRENCY_NAMES[a], "scores": sc,
@@ -259,7 +264,7 @@ def collect_wb(c: Collector) -> tuple[dict, dict]:
             c.keep(f"wb:{code}:{i}", s)
             out[code][i] = {"latest": {"value": float(g.value.iloc[-1]), "year": int(g.year.iloc[-1])},
                             "series": {"years": g.year.astype(int).tolist(), "values": [round(float(v), 4) for v in g.value]}}
-        time.sleep(0.3)
+        time.sleep(2.0)
     return out, pub
 
 

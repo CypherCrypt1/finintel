@@ -6,7 +6,13 @@ const CTRY = () => (S.G && S.G.countries) || [];
 const cBy = k => CTRY().find(c => c.key === k);
 const big = (v, cur = "$") => v == null ? "—" : Math.abs(v) >= 1e12 ? `${cur}${fmt(v / 1e12, 2)}tn` : Math.abs(v) >= 1e9 ? `${cur}${fmt(v / 1e9, 1)}bn` : Math.abs(v) >= 1e6 ? `${cur}${fmt(v / 1e6, 0)}m` : `${cur}${fmt(v, 0)}`;
 const wbL = (code, iso) => GD()?.wb?.[code]?.[iso]?.latest || null;
-const imfL = (code, iso) => GD()?.imf?.[code]?.[iso]?.latest || null;
+const IMF_WB = { NGDP_RPCH: "NY.GDP.MKTP.KD.ZG", PCPIPCH: "FP.CPI.TOTL.ZG", LUR: "SL.UEM.TOTL.ZS", NGDPDPC: "NY.GDP.PCAP.CD" };
+/** IMF WEO latest value; falls back to the World Bank equivalent (labelled) when IMF data is unavailable. */
+const imfL = (code, iso) => { const v = GD()?.imf?.[code]?.[iso]?.latest; if (v) return v;
+  if (IMF_WB[code]) { const w = wbL(IMF_WB[code], iso); if (w) return { value: w.value, year: w.year, kind: "Actual (World Bank)" }; }
+  if (code === "BCA_NGDPD") { const ca = wbL("BN.CAB.XOKA.CD", iso), gdp = wbL("NY.GDP.MKTP.CD", iso); if (ca && gdp && ca.year === gdp.year) return { value: ca.value / gdp.value * 100, year: ca.year, kind: "Derived (World Bank)" }; }
+  return null; };
+const imfSer = (code, iso) => { const v = GD()?.imf?.[code]?.[iso]; if (v) return v; const w = IMF_WB[code] && GD()?.wb?.[IMF_WB[code]]?.[iso]; return w ? { series: { ...w.series, kinds: w.series.years.map(() => "Actual (World Bank)") } } : null; };
 const L = (arr, empty) => listOr((arr || []).map(h => new String(h)), empty);
 const PEND = `<span class="pill warn">Pending source</span>`;
 const DEMO_BANNER = `<div class="pending" style="border-color:#c98500;margin-bottom:12px"><b style="color:#e0c27e">DEMONSTRATION DATA — NOT REAL.</b> Every value in the marked panels is synthetic and exists only to show how the component works. Real bilateral investment positions need IMF CDIS/CPIS and OECD FDI integration (Phase 2).</div>`;
@@ -26,6 +32,7 @@ function metaStrip(keys, extra = {}) {
 }
 /** one indicator row: label, value, period, kind, source, status */
 function indRow(label, v, unit, period, kind, source, isMoney) {
+  if (kind && kind.includes("World Bank")) source = "World Bank (IMF unavailable)";
   if (v == null) return [esc(label), `<span class="dim">—</span>`, "", "", esc(source || ""), PEND];
   const val = isMoney ? big(v) : `${fmt(v, Math.abs(v) >= 100 ? 0 : 2)}${unit || ""}`;
   return [esc(label), `<b class="num">${val}</b>`, `<span class="num sm">${esc(period ?? "")}</span>`, `<span class="sm">${esc(kind || "Actual")}</span>`, `<span class="sm dim">${esc(source)}</span>`, statusPill("Good").replace(">Good<", ">Available<")];
@@ -92,11 +99,11 @@ PAGES["command/what-changed"] = pg => { const ch = GD()?.changed; const glob = c
 /* ======================= MODULE 1: ECONOMIES ======================= */
 PAGES["economies/comparison"] = G_(pg => {
   const rows = CTRY().map(c => { const r = GD().rates[c.bis]?.latest; const v = (code) => imfL(code, c.iso3);
-    const cell = (x, d = 1) => x ? `<span class="num">${fmt(x.value, d)}</span><div class="sm dim">${x.year}${x.kind && x.kind !== "Actual (IMF)" ? " est." : ""}</div>` : "—";
+    const cell = (x, d = 1) => x ? `<span class="num">${fmt(x.value, d)}</span><div class="sm dim">${x.year}${x.kind && x.kind.includes("IMF") && x.kind !== "Actual (IMF)" ? " est." : x.kind && x.kind.includes("World Bank") ? " WB" : ""}</div>` : "—";
     return [`<a href="#/economies/${c.key}"><b>${esc(c.name)}</b></a><div class="sm dim">${esc(c.ccy)} · ${esc(c.cb)}</div>`, r ? `<span class="num">${fmt(r.value, 2)}%</span><div class="sm dim">${esc(r.date)}</div>` : "—", cell(v("NGDP_RPCH")), cell(v("PCPIPCH")), cell(v("LUR")), cell(v("GGXCNL_NGDP")), cell(v("GGXWDG_NGDP"), 0), cell(v("BCA_NGDPD")), wbL("FI.RES.TOTL.CD", c.iso3) ? big(wbL("FI.RES.TOTL.CD", c.iso3).value) : "—", v("NGDPDPC") ? `<span class="num">$${fmt(v("NGDPDPC").value, 0)}</span>` : "—"]; });
   return header(pg, "Ten economies side by side. Germany and France share the ECB's policy rate.") + metaStrip(["imf", "bis", "worldbank"]) +
     panel("Key indicators", table([{ t: "Economy" }, { t: "Policy rate", n: 1 }, { t: "GDP growth %", n: 1 }, { t: "Inflation %", n: 1 }, { t: "Unemployment %", n: 1 }, { t: "Fiscal bal. % GDP", n: 1 }, { t: "Debt % GDP", n: 1 }, { t: "Curr. acct % GDP", n: 1 }, { t: "Reserves", n: 1 }, { t: "GDP / capita", n: 1 }], rows), "IMF WEO latest non-projected year; BIS; World Bank", "flush") +
-    `<div class="g g2" style="margin-top:12px">${panel("Real GDP growth, history and IMF projections (%)", lineChart(CTRY().slice(0, 6).flatMap((c, i) => yrSeries(GD().imf.NGDP_RPCH?.[c.iso3], c.name, [C.gold, C.s1, C.s2, C.s3, C.s4, C.s5][i]).slice(0, 1)), { height: 240, zero: true, unit: "%" }))}${panel("Government debt, % of GDP", lineChart(CTRY().slice(0, 6).flatMap((c, i) => yrSeries(GD().imf.GGXWDG_NGDP?.[c.iso3], c.name, [C.gold, C.s1, C.s2, C.s3, C.s4, C.s5][i]).slice(0, 1)), { height: 240, unit: "%" }))}</div>`;
+    `<div class="g g2" style="margin-top:12px">${panel("Real GDP growth, history and IMF projections (%)", lineChart(CTRY().slice(0, 6).flatMap((c, i) => yrSeries(imfSer("NGDP_RPCH", c.iso3), c.name, [C.gold, C.s1, C.s2, C.s3, C.s4, C.s5][i]).slice(0, 1)), { height: 240, zero: true, unit: "%" }))}${panel("Government debt, % of GDP", lineChart(CTRY().slice(0, 6).flatMap((c, i) => yrSeries(GD().imf.GGXWDG_NGDP?.[c.iso3], c.name, [C.gold, C.s1, C.s2, C.s3, C.s4, C.s5][i]).slice(0, 1)), { height: 240, unit: "%" }))}</div>`;
 });
 function countryPage(ck) {
   return G_(pg => {
@@ -134,7 +141,7 @@ function countryPage(ck) {
         indRow(`Currency vs USD, 1 year (${c.ccy})`, c.ccy === "USD" ? ccy?.absolute?.y1 : ccy?.absolute?.y1, "%", ccy?.absolute?.date, "Actual", c.ccy === "USD" ? "Dollar index (DXY)" : "Yahoo Finance")]],
     ];
     const total = ind.reduce((s, [, rs]) => s + rs.length, 0), have = ind.reduce((s, [, rs]) => s + rs.filter(x => !String(x[5]).includes("Pending")).length, 0);
-    const imfC = (code, lab, unit) => panel(lab, lineChart(yrSeries(g.imf[code]?.[iso], lab, C.gold), { height: 190, zero: true, unit }));
+    const imfC = (code, lab, unit) => { const d = imfSer(code, iso); return panel(lab, d ? lineChart(yrSeries(d, lab, C.gold), { height: 190, zero: true, unit }) : `<div class="pending">IMF WEO series not loaded in the latest run.</div>`, d && !g.imf[code] ? "World Bank (IMF unavailable)" : "IMF WEO"); };
     return header(pg, `${esc(c.name)}: monetary policy, growth, prices, labour, public finances, external accounts and markets. Currency ${esc(c.ccy)}; monetary authority ${esc(c.cb)}.`, { right: selectBox(pg, CTRY().map(x => [x.key, x.name]), ck, "Country", "#/economies/") }) +
       ecb + metaStrip(["imf", "worldbank", "bis", "yahoo"]) +
       `<div class="g g6">${kpi("Policy rate", r ? fmt(r.latest.value, 2) + "%" : "—", r ? `${esc(r.latest.date)}${r.last_move ? ` · last move ${sgn(r.last_move.size, 2)} (${esc(r.last_move.date)})` : ""}` : "pending")}
@@ -238,7 +245,7 @@ PAGES["commodities/fundamentals"] = pg => pendingPage(pg, { lede: "Production, c
 
 /* ======================= MODULE 4: FISCAL ======================= */
 const FISC = [["GGR_NGDP", "Revenue"], ["GGX_NGDP", "Expenditure"], ["GGXCNL_NGDP", "Fiscal balance"], ["GGXONLB_NGDP", "Primary balance"], ["GGXWDG_NGDP", "Gross debt"]];
-const fiscCell = x => x ? `<span class="num">${fmt(x.value, 1)}</span><div class="sm dim">${x.year}${x.kind !== "Actual (IMF)" ? " est." : ""}</div>` : "—";
+const fiscCell = x => x ? `<span class="num">${fmt(x.value, 1)}</span><div class="sm dim">${x.year}${x.kind && x.kind.includes("IMF") && x.kind !== "Actual (IMF)" ? " est." : x.kind && x.kind.includes("World Bank") ? " WB" : ""}</div>` : "—";
 PAGES["fiscal/comparison"] = G_(pg => header(pg, "Government finances compared, % of GDP (IMF WEO), with World Bank detail on spending composition.") + metaStrip(["imf", "worldbank"]) +
   panel("General government, % of GDP", table([{ t: "Country" }, ...FISC.map(([, t]) => ({ t, n: 1 })), { t: "Interest, % of revenue", n: 1 }, { t: "Tax revenue % GDP", n: 1 }, { t: "Defence % GDP", n: 1 }], CTRY().map(c => [`<a href="#/fiscal/country/${c.key}"><b>${esc(c.name)}</b></a>`, ...FISC.map(([k]) => fiscCell(imfL(k, c.iso3))), fiscCell(wbL("GC.XPN.INTP.RV.ZS", c.iso3)), fiscCell(wbL("GC.TAX.TOTL.GD.ZS", c.iso3)), fiscCell(wbL("MS.MIL.XPND.GD.ZS", c.iso3))])), "", "flush") +
   `<div class="g g2" style="margin-top:12px">${panel("Fiscal balance (% of GDP), latest", barChart(CTRY().map(c => c.name.replace("United ", "U. ")), CTRY().map(c => imfL("GGXCNL_NGDP", c.iso3)?.value ?? null), { diverging: true, height: 200, unit: "%", fmt: v => fmt(v, 1) }))}${panel("Gross debt (% of GDP), latest", barChart(CTRY().map(c => c.name.replace("United ", "U. ")), CTRY().map(c => imfL("GGXWDG_NGDP", c.iso3)?.value ?? null), { height: 200, unit: "%", fmt: v => fmt(v, 0), color: C.s1 }))}</div>`);

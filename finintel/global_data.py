@@ -7,6 +7,7 @@ A failed source is recorded in `errors` and its panels show as pending; nothing 
 from __future__ import annotations
 
 import io
+import json
 import time
 from datetime import datetime, timezone
 
@@ -19,7 +20,7 @@ from .connectors import ConnectorError, _cftc, _col, fred, CFTC_TFF
 
 BROWSER = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
            "Accept": "application/json,text/plain,*/*"}
-SEC_UA = {"User-Agent": "SOVEREIGN research cyphercrypt1@users.noreply.github.com"}
+SEC_UA = {"User-Agent": "SovereignResearch cyphercrypt1@users.noreply.github.com", "Accept-Encoding": "gzip, deflate", "Accept": "application/json"}
 TODAY = pd.Timestamp(datetime.now(timezone.utc).date())
 
 
@@ -88,7 +89,7 @@ def ser(s: pd.Series, n: int = 520, nd: int = 4) -> dict:
 # --------------------------------------------------------------- World Bank
 def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
     url = f"https://api.worldbank.org/v2/country/{';'.join(iso3)}/indicator/{code}"
-    j = get(url, {"format": "json", "per_page": 2000, "date": "2000:2026"}, timeout=40, retries=1).json()
+    j = get(url, {"format": "json", "per_page": 1000, "date": "2005:2026"}, timeout=90, retries=2, pause=4).json()
     if not isinstance(j, list) or len(j) < 2 or not j[1]:
         raise ConnectorError(f"World Bank {code}: empty")
     rows = [(x["countryiso3code"] or x["country"]["id"], int(x["date"]), x["value"]) for x in j[1] if x["value"] is not None]
@@ -98,12 +99,35 @@ def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
 
 # --------------------------------------------------------------------- IMF
 def imf(code: str, iso3: list[str]) -> pd.DataFrame:
-    j = get(f"https://www.imf.org/external/datamapper/api/v1/{code}/{'/'.join(iso3)}", timeout=40, retries=1).json()
-    vals = j.get("values", {}).get(code, {})
-    rows = [(c, int(y), v) for c, ys in vals.items() for y, v in ys.items() if v is not None]
-    if not rows:
-        raise ConnectorError(f"IMF {code}: empty")
-    return pd.DataFrame(rows, columns=["iso3", "year", "value"])
+    """IMF WEO. The IMF DataMapper blocks some cloud servers, so DBnomics (a public mirror of IMF WEO) is the fallback."""
+    errs = []
+    try:
+        j = get(f"https://www.imf.org/external/datamapper/api/v1/{code}/{'/'.join(iso3)}", timeout=40, retries=0).json()
+        vals = j.get("values", {}).get(code, {})
+        rows = [(c, int(y), v) for c, ys in vals.items() for y, v in ys.items() if v is not None]
+        if rows:
+            return pd.DataFrame(rows, columns=["iso3", "year", "value"])
+    except Exception as e:
+        errs.append(f"DataMapper: {e}")
+    for ds in ("WEO:latest", "WEO:2025-10", "WEO:2026-04"):
+        try:
+            j = get(f"https://api.db.nomics.world/v22/series/IMF/{ds}",
+                    {"dimensions": json.dumps({"weo-subject": [code]}), "observations": 1, "limit": 1000}, timeout=60, retries=1).json()
+            docs = j.get("series", {}).get("docs", [])
+            rows = []
+            for d in docs:
+                ctry = str(d.get("series_code", "")).split(".")[0]
+                if ctry not in iso3:
+                    continue
+                for per, v in zip(d.get("period", []), d.get("value", [])):
+                    if v not in (None, "NA") and str(per)[:4].isdigit():
+                        rows.append((ctry, int(str(per)[:4]), float(v)))
+            if rows:
+                return pd.DataFrame(rows, columns=["iso3", "year", "value"])
+            errs.append(f"DBnomics {ds}: no rows ({len(docs)} series)")
+        except Exception as e:
+            errs.append(f"DBnomics {ds}: {e}")
+    raise ConnectorError(f"IMF {code}: " + "; ".join(errs)[:300])
 
 
 # --------------------------------------------------------------------- BIS
