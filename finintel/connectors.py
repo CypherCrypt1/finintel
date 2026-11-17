@@ -42,6 +42,7 @@ def _get(url: str, params: dict | None = None, retries: int = 2, timeout: int = 
 
 
 # --------------------------------------------------------------------- FRED
+_FRED_CSV_DOWN = False
 FRED_START = (pd.Timestamp.today() - pd.Timedelta(days=6 * 365)).strftime("%Y-%m-%d")
 
 
@@ -62,14 +63,18 @@ def fred(series_id: str) -> pd.Series:
         except Exception as e:
             errors.append(f"API: {e}")
     try:
+        if _FRED_CSV_DOWN:
+            raise ConnectorError("FRED website unreachable earlier in this run; skipped")
         r = _get("https://fred.stlouisfed.org/graph/fredgraph.csv", {"id": series_id, "cosd": FRED_START},
-                 retries=1, timeout=60)
+                 retries=0, timeout=45)
         df = pd.read_csv(io.StringIO(r.text))
         date_col = "observation_date" if "observation_date" in df.columns else df.columns[0]
         s = pd.to_numeric(df[series_id], errors="coerce")
         s.index = pd.to_datetime(df[date_col])
         return s.dropna().rename(series_id)
     except Exception as e:
+        if "skipped" not in str(e):
+            globals()["_FRED_CSV_DOWN"] = True
         errors.append(f"CSV: {e}")
     if series_id in TREASURY_FALLBACK:
         try:
