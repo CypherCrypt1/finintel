@@ -41,6 +41,9 @@ def install_fakes(monkeypatch):
                                     "period": ["2022", "2023"], "value": ["NA", float(RNG.uniform(1e3, 5e5))]})
         return out
     monkeypatch.setattr(D, "dbn_series", dbn)
+    from finintel import global_extra as X
+    for fn in ("collect_banking", "collect_iip", "collect_cb_gold", "collect_tic", "collect_oecd", "collect_calendar", "collect_valuation"):
+        monkeypatch.setattr(X, fn, lambda c: {})
     monkeypatch.setattr(D, "dbn_labels", lambda ds, dim: {"US": "United States", "GB": "United Kingdom"})
     monkeypatch.setattr(D, "imf", lambda code, iso: pd.DataFrame([(i, y, float(RNG.normal(2, 1))) for i in iso for y in range(2010, 2031)], columns=["iso3", "year", "value"]))
     def bis(flow, key, start):

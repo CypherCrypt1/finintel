@@ -115,3 +115,15 @@ CORPORATE_SOURCES = {
     "de": "Unternehmensregister / company annual reports (ESEF)", "fr": "AMF / ESEF filings", "in": "BSE / NSE XBRL filings",
     "gb": "Companies House API / FCA NSM", "ca": "SEDAR+", "ch": "SIX disclosures / company reports", "ru": "e-disclosure.ru (coverage limited)",
 }
+
+
+# if an index fails on Yahoo, try a fund that tracks it (labelled as a proxy on the site)
+TICKER_FALLBACK = {"000300.SS": ("510300.SS", "Huatai-PineBridge CSI 300 ETF"), "^N225": ("1321.T", "Nomura Nikkei 225 ETF"),
+                   "000001.SS": ("510210.SS", "SSE Composite ETF")}
+
+# US sector ETFs (SPDR Select Sector) for sector intelligence; prices from Yahoo Finance
+SECTORS = [("xlk", "Information technology", "XLK"), ("xlf", "Financials", "XLF"), ("xlv", "Health care", "XLV"),
+           ("xly", "Consumer discretionary", "XLY"), ("xlp", "Consumer staples", "XLP"), ("xle", "Energy", "XLE"),
+           ("xli", "Industrials", "XLI"), ("xlb", "Materials", "XLB"), ("xlu", "Utilities", "XLU"),
+           ("xlre", "Real estate", "XLRE"), ("xlc", "Communication services", "XLC"),
+           ("smh", "Semiconductors (VanEck SMH)", "SMH"), ("kre", "Regional banks (SPDR KRE)", "KRE"), ("gdx", "Gold miners (VanEck GDX)", "GDX")]

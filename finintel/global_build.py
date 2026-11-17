@@ -11,6 +11,7 @@ import pandas as pd
 
 from . import global_config as G
 from . import global_data as D
+from . import global_extra as X
 from .connectors import ConnectorError, fred
 
 NOW = datetime.now(timezone.utc)
@@ -20,7 +21,7 @@ YEAR = NOW.year
 class Collector:
     def __init__(self, store, offline=False):
         self.store, self.offline, self.errors, self.saved = store, offline, {}, []
-        self.fails, self.t0 = {}, time.time()
+        self.fails, self.t0, self.proxied = {}, time.time(), {}
 
     def keep(self, sid, s: pd.Series):
         if s is not None and not s.dropna().empty and not self.offline:
@@ -65,7 +66,7 @@ def collect_markets(c: Collector) -> dict:
     for k, n, t, *_ in G.COMMODITIES:
         if t:
             tickers[t] = ("commodity", k, n)
-    for k, n, t in G.PROXIES + G.US_YIELDS:
+    for k, n, t in G.PROXIES + G.US_YIELDS + G.SECTORS:
         tickers[t] = ("proxy", k, n)
     out = {}
     for t, (kind, k, n) in tickers.items():
@@ -74,6 +75,11 @@ def collect_markets(c: Collector) -> dict:
             s = c.try_(sid, lambda: c.offline_series(sid))
         else:
             s = c.try_(sid, lambda: D.yahoo(t, "10y"))
+            if (s is None or len(s) <= 5) and t in G.TICKER_FALLBACK:
+                fb, fbn = G.TICKER_FALLBACK[t]
+                s = c.try_(f"yahoo:{fb}", lambda: D.yahoo(fb, "10y"))
+                if s is not None and len(s) > 5:
+                    c.proxied[t] = {"ticker": fb, "name": fbn}
             c.keep(sid, s)
             time.sleep(0.25)
         if s is not None and len(s) > 5:
@@ -674,7 +680,8 @@ def dbn_labels_safe(ds, dim):
 
 
 # ----------------------------------------------------------------- build
-REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7, "positions": 30}
+REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7, "positions": 30,
+                "banking": 7, "iip": 7, "cb_gold": 7, "tic": 1, "oecd": 2, "calendar": 1, "valuation": 1}
 
 
 def _age_days(prev, sec):
@@ -752,6 +759,15 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     c.stage("start positions")
     positions = section("positions", lambda: collect_positions(c), {}, prev.get("positions"),
                         complete=lambda v: sum(1 for x in v.values() if x.get("direct_outward") or x.get("portfolio_assets")) >= 8)
+    c.stage("start extra")
+    banking = section("banking", lambda: c.try_("banking:all", lambda: X.collect_banking(c)) or {}, {}, prev.get("banking"), complete=lambda v: len(v.get("countries", {})) >= 9)
+    iip = section("iip", lambda: c.try_("iip:all", lambda: X.collect_iip(c)) or {}, {}, prev.get("iip"), complete=lambda v: len(v) >= 9)
+    cb_gold = section("cb_gold", lambda: c.try_("cbgold:all", lambda: X.collect_cb_gold(c)) or {}, {}, prev.get("cb_gold"))
+    tic = section("tic", lambda: c.try_("tic:all", lambda: X.collect_tic(c)) or {}, {}, prev.get("tic"))
+    oecd = section("oecd", lambda: c.try_("oecd:all", lambda: X.collect_oecd(c)) or {}, {}, prev.get("oecd"), complete=lambda v: len(v.get("countries", {})) >= 8)
+    cal_feed = section("calendar", lambda: c.try_("calendar:all", lambda: X.collect_calendar(c)) or {}, {}, prev.get("calendar_feed"))
+    valuation = section("valuation", lambda: c.try_("valuation:all", lambda: X.collect_valuation(c)) or {}, {}, prev.get("valuation"),
+                        complete=lambda v: "cape" in v and "damodaran" in v)
     c.stage("start sec")
     companies = section("companies", lambda: collect_companies(c), [], prev.get("companies"))
     local = os.path.join(os.path.dirname(prev_path or "."), "companies.json")
@@ -781,7 +797,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
                 c.keep(f"fred:{sid}", s)
                 fredd[k] = {"series": D.ser(s, 400, 3), "latest": {"value": float(s.iloc[-1]), "date": s.index[-1].strftime("%Y-%m-%d")}}
 
-    markets = {"indices": [], "commodities": [], "proxies": [], "yields": []}
+    markets = {"indices": [], "commodities": [], "proxies": [], "yields": [], "sectors": []}
     for k, n, t, region, ck, ccy in G.INDICES:
         s = px.get(t)
         markets["indices"].append({"key": k, "name": n, "ticker": t, "region": region, "country": ck, "ccy": ccy,
@@ -794,6 +810,16 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     for k, n, t in G.PROXIES:
         s = px.get(t)
         markets["proxies"].append({"key": k, "name": n, "ticker": t, "perf": D.perf(s) if s is not None else None})
+    for k, n, t in G.SECTORS:
+        s, b = px.get(t), px.get("^GSPC")
+        rel = None
+        if s is not None and b is not None:
+            j = pd.concat([s, b], axis=1, join="inner").dropna()
+            if len(j) > 260:
+                r = j.iloc[:, 0] / j.iloc[:, 1]
+                rel = {w: round(float((r.iloc[-1] / r.iloc[-1 - n] - 1) * 100), 2) for w, n in (("m1", 21), ("m3", 63), ("y1", 252))}
+        markets["sectors"].append({"key": k, "name": n, "ticker": t, "perf": D.perf(s) if s is not None else None, "rel_spx": rel,
+                                   "series": D.ser(s, 520, 2) if s is not None else None})
     for k, n, t in G.US_YIELDS:
         s = px.get(t)
         markets["yields"].append({"key": k, "name": n, "ticker": t, "perf": D.perf(s) if s is not None else None, "series": D.ser(s, 520, 3) if s is not None else None})
@@ -829,6 +855,23 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         "positions": D.meta("IMF (via DBnomics)", "Coordinated Direct Investment Survey (CDIS) and Portfolio Investment Survey (CPIS)",
                             "https://db.nomics.world/IMF", freq="Annual", kind="Actual (reported positions)", confidence="High",
                             note="End-of-year positions (stocks), not flows. Immediate counterparty: investment routed through financial centres appears under those centres."),
+        "banking": D.meta("Bank for International Settlements", "Locational Banking Statistics (WS_LBS_D_PUB), cross-border positions",
+                          "https://data.bis.org/topics/LBS", freq="Quarterly", kind="Actual", confidence="High",
+                          note="Cross-border claims and liabilities of banks by location; published about 4 months after quarter end."),
+        "iip": D.meta("IMF (via DBnomics)", "Balance of Payments: International Investment Position", "https://db.nomics.world/IMF/BOP",
+                      freq="Quarterly (annual where quarterly is not reported)", kind="Actual", confidence="High", note="Stocks at period end, US$."),
+        "cb_gold": D.meta("IMF (via DBnomics)", "International Financial Statistics: official gold reserves (volume)", "https://db.nomics.world/IMF/IFS",
+                          freq="Monthly", kind="Actual (as reported by central banks)", confidence="High",
+                          note="Converted from million troy ounces to tonnes. IFS on DBnomics may lag the IMF's newer data portal by several months."),
+        "tic": D.meta("US Treasury", "TIC: Major Foreign Holders of Treasury Securities (Table 5)", "https://ticdata.treasury.gov/", freq="Monthly",
+                      kind="Actual", confidence="High", note="Published about 6–7 weeks after month end; custody-based, so holdings in Belgium, Luxembourg and Cayman include other countries' investors."),
+        "oecd": D.meta("OECD", "Composite leading indicators; key short-term economic indicators", "https://data-explorer.oecd.org/", freq="Monthly",
+                       kind="Actual (CLI is a model-based indicator)", confidence="High", note="Russia is not covered by OECD."),
+        "calendar_feed": D.meta("St. Louis Fed / mempool.space", "FRED release calendar; Bitcoin difficulty estimate", "https://fred.stlouisfed.org/releases/calendar",
+                                freq="Daily", kind="Scheduled / estimated", confidence="High", note="US releases only; other countries' calendars are not yet covered."),
+        "valuation": D.meta("multpl.com / Aswath Damodaran (NYU Stern)", "S&P 500 CAPE, P/E and yields; country risk premiums", "https://pages.stern.nyu.edu/~adamodar/",
+                            freq="Monthly / semi-annual", kind="Actual (third-party compiled)", confidence="Medium",
+                            note="Third-party compilations of public data; latest month on multpl uses the current price and estimated earnings."),
         "cftc": D.meta("CFTC", "Traders in Financial Futures", "https://publicreporting.cftc.gov/", freq="Weekly", kind="Actual", confidence="High"),
         "fred": D.meta("Federal Reserve Bank of St. Louis", "FRED (OECD long-term rates, ICE BofA spreads)", "https://fred.stlouisfed.org/", freq="Daily / monthly", kind="Actual", confidence="High",
                        note="Requires FRED_API_KEY."),
@@ -837,7 +880,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     return {"generated_at": NOW.strftime("%Y-%m-%d %H:%M UTC"), "year": YEAR, "countries": G.COUNTRIES, "markets": markets, "fx": fx, "matrix": matrix,
             "rates": rates, "eer": eer, "wb": wb, "wb_labels": {k: v[0] for k, v in G.WB.items()}, "wb_units": {k: v[1] for k, v in G.WB.items()},
             "imf": imf, "imf_labels": {k: v[0] for k, v in G.IMF.items()}, "trade": trade, "companies": companies,
-            "company_sources": G.CORPORATE_SOURCES, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
+            "company_sources": G.CORPORATE_SOURCES, "proxied": c.proxied,
+            "banking": banking, "iip": iip, "cb_gold": cb_gold, "tic": tic, "oecd": oecd, "calendar_feed": cal_feed, "valuation": valuation, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
             "meta": meta, "coverage": coverage, "revisions": revisions, "errors": c.errors,
             "fetched": fetched, "carried": carried, "refresh_days": REFRESH_DAYS}
 

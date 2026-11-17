@@ -14,6 +14,7 @@ const imfL = (code, iso) => { const v = GD()?.imf?.[code]?.[iso]?.latest; if (v)
   return null; };
 const imfSer = (code, iso) => { const v = GD()?.imf?.[code]?.[iso]; if (v) return v; const w = IMF_WB[code] && GD()?.wb?.[IMF_WB[code]]?.[iso]; return w ? { series: { ...w.series, kinds: w.series.years.map(() => "Actual (World Bank)") } } : null; };
 const L = (arr, empty) => listOr((arr || []).map(h => new String(h)), empty);
+const PXY = t => { const p = (GD().proxied || {})[t]; return p ? ` <span class="pill warn" title="The index feed failed; this row uses ${esc(p.name)} (${esc(p.ticker)}), a fund that tracks it. Price level is the fund's, not the index's.">proxy: ${esc(p.ticker)}</span>` : ""; };
 const PEND = `<span class="pill warn">Pending source</span>`;
 function needGlobal(pg) { return header(pg) + `<div class="pending"><b>Global data file not built yet.</b> The daily run writes data/global.json; it appears after the next successful GitHub Actions run.</div>`; }
 const G_ = fn => pg => GD() ? fn(pg) : needGlobal(pg);
@@ -89,7 +90,7 @@ PAGES["command/global-dashboard"] = G_(pg => {
       ${panel("Bond markets", table([{ t: "Instrument" }, { t: "Yield", n: 1 }, { t: "1M chg (pp)", n: 1 }, { t: "As of" }], [...g.markets.yields.filter(y => y.perf).map(y => [esc(y.name), `<span class="num">${fmt(y.perf.last, 2)}%</span>`, `<span class="num">${sgn(y.perf.last - y.perf.last / (1 + (y.perf.m1 || 0) / 100), 2)}</span>`, esc(y.perf.date)]),
         ...Object.entries(g.fred || {}).filter(([k2]) => k2.length === 2 && k2 !== "us").map(([k2, v]) => [`${esc(cBy(k2)?.name || k2)} 10y (monthly)`, `<span class="num">${fmt(v.latest.value, 2)}%</span>`, "", esc(v.latest.date)])]) + (Object.keys(g.fred || {}).length ? "" : `<div class="note">Non-US 10-year yields need the FRED key.</div>`), "", "flush")}</div>
     <div class="g g3">${panel("What changed today?", `<h3>Largest index moves</h3>${L((ch.index_movers || []).map(([n, v]) => `${esc(n)} ${pct(v)}`))}<h3 style="margin-top:8px">Largest commodity moves</h3>${L((ch.commodity_movers || []).map(([n, v]) => `${esc(n)} ${pct(v)}`))}<h3 style="margin-top:8px">Policy rate moves (last 2 months)</h3>${listOr(ch.rate_moves, "None recorded.")}`, `<a href="#/command/what-changed">Full report →</a>`)}
-      ${panel("Major economic releases", L((R("calendar").events || []).filter(e => e.date >= S.data.as_of).map(e => `<span class="num">${esc(e.date)}</span> ${esc(e.event)}`), "No confirmed events in the calendar file."), `<a href="#/command/calendar">Calendar →</a>`)}
+      ${panel("Major economic releases", L([...(R("calendar").events || []), ...((GD()?.calendar_feed?.events || []).filter(e => e.importance === "High"))].filter(e => e.date >= S.data.as_of).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8).map(e => `<span class="num">${esc(e.date)}</span> ${esc(e.event)}`), "No scheduled events."), `<a href="#/command/calendar">Calendar →</a>`)}
       ${panel("Geopolitical developments", L((R("geopolitics").items || []).map(x => `<span class="num dim">${esc(x.date)}</span> ${esc(x.headline)}`)), `<a href="#/macro/geopolitics">More →</a>`)}</div>`;
 });
 const _wc = PAGES["command/what-changed"];
@@ -158,7 +159,7 @@ function countryPage(ck) {
 
 /* ======================= MODULE 2: EQUITIES ======================= */
 function equityTable(list) {
-  return table([{ t: "Index" }, { t: "Country" }, { t: "Last", n: 1 }, ...PERF_COLS, { t: "Vol 30d", n: 1 }, { t: "From 52w high", n: 1 }, { t: "As of" }], list.map(i => i.perf ? [`<a href="#/equities/index/${i.key}"><b>${esc(i.name)}</b></a> <span class="dim sm">${esc(i.ticker)}</span>`, esc(cBy(i.country)?.name || "—"), `<span class="num">${fmt(i.perf.last, 0)}</span>`, ...perfCells(i.perf), `<span class="num">${fmt(i.perf.vol30, 1)}%</span>`, pct((i.perf.last / i.perf.hi52 - 1) * 100, 1), `<span class="sm dim">${esc(i.perf.date)}</span>`] : [`<b>${esc(i.name)}</b> <span class="dim sm">${esc(i.ticker)}</span>`, esc(cBy(i.country)?.name || "—"), "—", "", "", "", "", "", "", "", `${PEND}`]));
+  return table([{ t: "Index" }, { t: "Country" }, { t: "Last", n: 1 }, ...PERF_COLS, { t: "Vol 30d", n: 1 }, { t: "From 52w high", n: 1 }, { t: "As of" }], list.map(i => i.perf ? [`<a href="#/equities/index/${i.key}"><b>${esc(i.name)}</b></a> <span class="dim sm">${esc(i.ticker)}</span>${PXY(i.ticker)}`, esc(cBy(i.country)?.name || "—"), `<span class="num">${fmt(i.perf.last, 0)}</span>`, ...perfCells(i.perf), `<span class="num">${fmt(i.perf.vol30, 1)}%</span>`, pct((i.perf.last / i.perf.hi52 - 1) * 100, 1), `<span class="sm dim">${esc(i.perf.date)}</span>`] : [`<b>${esc(i.name)}</b> <span class="dim sm">${esc(i.ticker)}</span>`, esc(cBy(i.country)?.name || "—"), "—", "", "", "", "", "", "", "", `${PEND}`]));
 }
 PAGES["equities/dashboard"] = G_(pg => { const ix = GD().markets.indices;
   return header(pg, "Twenty equity indices across the Americas, Europe and Asia-Pacific, in local currency.") + metaStrip(["yahoo"]) +
@@ -424,9 +425,112 @@ PAGES["platform/coverage"] = G_(pg => { const g = GD(), cv = g.coverage, errs = 
       row("Currencies", cv.currencies.covered, cv.currencies.target, ""), row("Central bank policy rates", cv.policy_rates.covered, cv.policy_rates.target, "Germany and France share the ECB"),
       row("World Bank indicators", cv.worldbank.indicators, cv.worldbank.target, `${cv.worldbank.country_cells} country-indicator series`), row("IMF WEO indicators", cv.imf.indicators, cv.imf.target, "includes projections, labelled"),
       row("Trade reporters (UN Comtrade)", cv.trade.reporters, cv.trade.target, "Russia not reporting since 2021"), row("Companies (filings)", cv.companies.records, cv.companies.target_per_country * cv.companies.countries, "US only so far"),
-      (() => { const n = Object.values(GD().positions || {}).filter(r => r.direct_outward || r.portfolio_assets).length; return row("Bilateral investment positions (IMF CDIS/CPIS)", n, 10, n ? "annual, end-year stocks" : "not loaded"); })(), row("PMIs, confidence, retail sales", 0, 10, "licensed or not yet integrated")])) +
+      (() => { const n = Object.values(GD().positions || {}).filter(r => r.direct_outward || r.portfolio_assets).length; return row("Bilateral investment positions (IMF CDIS/CPIS)", n, 10, n ? "annual, end-year stocks" : "not loaded"); })(), ...(() => { const g = GD(), n = k => Object.keys(g[k]?.countries || g[k] || {}).length; return [
+        row("Monthly indicators (OECD CLI, confidence, production, retail)", Object.keys(g.oecd?.countries || {}).length, 10, "Russia not covered by OECD; PMIs are licensed"),
+        row("Cross-border banking (BIS LBS)", Object.keys(g.banking?.countries || {}).length, 10, "quarterly"),
+        row("International investment position (IMF)", Object.keys(g.iip || {}).length, 10, "quarterly"),
+        row("Official gold reserves (IMF IFS)", (g.cb_gold?.holders || []).length, 22, g.cb_gold?.latest_period ? "monthly, latest " + g.cb_gold.latest_period : "not loaded"),
+        row("Foreign holders of US Treasuries (TIC)", g.tic?.rows ? 1 : 0, 1, g.tic?.months ? "monthly, latest " + g.tic.months[0] : "not loaded"),
+        row("Economic calendar (US releases, FRED)", (g.calendar_feed?.events || []).length ? 1 : 0, 1, (g.calendar_feed?.events || []).length + " upcoming events; other countries hand-entered"),
+        row("US sector ETFs", (g.markets.sectors || []).filter(x => x.perf).length, (g.markets.sectors || []).length || 14, "daily"),
+        row("Equity valuation (US CAPE, P/E; country risk premiums)", ["cape", "pe", "dy", "ey", "damodaran"].filter(k => g.valuation?.[k]).length, 5, "non-US index P/E is licensed")]; })()])) +
     `<div style="height:12px"></div>` + metaStrip(Object.keys(g.meta)).replace("<details", "<details open") +
     panel(`Source errors in the latest build (${errs.length})`, errs.length ? table([{ t: "Series" }, { t: "Error" }], errs.slice(0, 120).map(([k, v]) => [`<span class="mono sm">${esc(k)}</span>`, `<span class="sm">${esc(v)}</span>`]), { max: 400 }) : "None.") +
     panel("Rules", `<ul class="clean"><li>Missing data is shown as "—" or "pending", never as zero or an estimate.</li><li>Quarterly and annual data always shows its period; it is never labelled as current daily data.</li><li>IMF values for the current and future years are labelled as projections.</li><li>Demonstration data appears only on the investment map pages and is marked on every value.</li><li>Every stored value keeps the date the platform first saw it, so revisions are recorded.</li></ul>`); });
+
+/* ======================= ADDITIONAL OFFICIAL SOURCES ======================= */
+const qd = d => { const m = /^(\d{4})-Q(\d)$/.exec(d); return m ? `${m[1]}-${String(m[2] * 3).padStart(2, "0")}-28` : d; };
+const qser = (sr, name, color, scale = 1) => ({ name, color, dates: sr.dates.map(qd), values: sr.values.map(v => v == null ? null : v * scale) });
+const PALETTE = [C.gold, C.bull, C.bear, "#8f7ee0", "#5fb3a1", "#d98bbf", "#b7b0a2", "#e0a85c", "#6aa4d9", "#a3c46b"];
+const nb = v => v == null ? "—" : `<span class="num">${fmt(v, 1)}</span>`;
+const chg = (v, d = 1, u = "") => v == null ? `<span class="dim">—</span>` : `<span class="num ${v > 0 ? "up" : v < 0 ? "dn" : ""}">${v > 0 ? "+" : ""}${fmt(v, d)}${u}</span>`;
+
+// ---- Cross-border banking (BIS LBS)
+PAGES["flows/banking"] = G_(pg => { const B = GD().banking || {}, Cn = B.countries || {};
+  if (!Object.keys(Cn).length) return header(pg, "Cross-border banking.") + `<div class="pending">BIS banking statistics are not loaded yet.</div>`;
+  const focus = pg.param || "us", f = Cn[focus] || {}, keys = CTRY().map(c => c.key), names = CTRY().map(c => c.name);
+  const per = Object.values(Cn).map(r => r.on_claims?.period).filter(Boolean).sort().pop();
+  const mm = keys.map(a => keys.map(b => a === b ? null : (B.matrix?.[a]?.[b] ?? null) == null ? null : B.matrix[a][b] / 1e9));
+  return header(pg, "Cross-border bank lending and deposits (BIS Locational Banking Statistics), all sectors, all currencies. Positions at quarter end.", { right: selectBox(pg, CTRY().map(x => [x.key, x.name]), focus, "Country") }) + metaStrip(["banking"]) +
+    panel(`Cross-border bank positions, ${esc(per || "")}`, table([{ t: "Country" }, { t: "Owed to foreign banks", n: 1 }, { t: "y/y", n: 1 }, { t: "Deposits at foreign banks", n: 1 }, { t: "Lent abroad by banks located here", n: 1 }, { t: "y/y", n: 1 }, { t: "Borrowed from abroad by banks here", n: 1 }, { t: "Period" }],
+      CTRY().map(c => { const r = Cn[c.key] || {}; return [`<a href="#/flows/banking/${c.key}">${esc(c.name)}</a>`, big(r.on_claims?.latest), chg(r.on_claims?.yoy, 1, "%"), big(r.on_liabilities?.latest), big(r.by_claims?.latest), chg(r.by_claims?.yoy, 1, "%"), big(r.by_liabilities?.latest), `<span class="sm dim">${esc(r.on_claims?.period || r.by_claims?.period || "")}</span>`]; })), "Owed to / deposits at = what banks in all ~48 BIS reporting countries hold against residents of the country. Lent / borrowed by banks here = positions of banks located in the country against the rest of the world.", "flush") +
+    `<div class="g g2" style="margin-top:12px">${panel(`${esc(cBy(focus).name)}: foreign banks' claims on residents, US$ bn`, f.on_claims ? lineChart([qser(f.on_claims.series, "Claims on " + cBy(focus).name, C.gold), ...(f.on_liabilities ? [qser(f.on_liabilities.series, "Liabilities to " + cBy(focus).name, C.bull)] : [])], { height: 220, fmt: v => fmt(v, 0) }) : PEND)}${panel(`Banks located in ${esc(cBy(focus).name)}: cross-border positions, US$ bn`, f.by_claims ? lineChart([qser(f.by_claims.series, "Claims on the world", C.gold), ...(f.by_liabilities ? [qser(f.by_liabilities.series, "Liabilities to the world", C.bull)] : [])], { height: 220, fmt: v => fmt(v, 0) }) : `<div class="pending">${esc(cBy(focus).name)}'s banks do not report this breakdown publicly to the BIS.</div>`)}</div>` +
+    (B.matrix && Object.keys(B.matrix).length ? panel(`Bilateral bank claims, ${esc(B.matrix_period || "")}: banks located in row country → claims on column country, US$ bn`, matrixHeat(names, names, mm, { scale: Math.max(1, ...mm.flat().filter(v => v != null)), fmt: v => fmt(v, 0), left: 120, top: 110 })) : "") +
+    `<p class="sm">Locational statistics follow where the bank office is, not its nationality: a Japanese bank's London branch counts under the United Kingdom. Not every country publishes its own bilateral detail, so some matrix cells are blank.</p>`; });
+
+// ---- International investment position (IMF)
+PAGES["flows/iip"] = G_(pg => { const I = GD().iip || {};
+  if (!Object.keys(I).length) return header(pg, "International investment position.") + `<div class="pending">IMF IIP data is not loaded yet.</div>`;
+  const focus = pg.param || "us", f = I[focus]?.items || {}, gdp = c => wbL("NY.GDP.MKTP.CD", c.iso3)?.value;
+  const it = (r, k) => r?.items?.[k];
+  return header(pg, "What each country owns abroad and owes to the rest of the world (stocks at period end, US$).", { right: selectBox(pg, CTRY().map(x => [x.key, x.name]), focus, "Country") }) + metaStrip(["iip", "worldbank"]) +
+    panel("International investment position, latest period", table([{ t: "Country" }, { t: "Foreign assets", n: 1 }, { t: "Foreign liabilities", n: 1 }, { t: "Net position", n: 1 }, { t: "Net, % of GDP", n: 1 }, { t: "Reserve assets", n: 1 }, { t: "Period" }],
+      CTRY().map(c => { const r = I[c.key]; const n = it(r, "NET")?.latest, g = gdp(c); return [`<a href="#/flows/iip/${c.key}">${esc(c.name)}</a>`, big(it(r, "IA_BP6_USD")?.latest), big(it(r, "IL_BP6_USD")?.latest), n == null ? "—" : `<span class="num ${n >= 0 ? "up" : "dn"}">${big(n)}</span>`, n != null && g ? chg(n / g * 100, 0, "%") : "—", big(it(r, "IAR_BP6_USD")?.latest), `<span class="sm dim">${esc(it(r, "IA_BP6_USD")?.period || "")}</span>`]; })), "Net % of GDP uses the World Bank's latest annual GDP, which may be a different year from the IIP period.", "flush") +
+    `<div class="g g2" style="margin-top:12px">${panel(`${esc(cBy(focus).name)}: assets, liabilities and net position, US$ bn`, f.IA_BP6_USD ? lineChart([qser(f.IA_BP6_USD.series, "Assets", C.bull), qser(f.IL_BP6_USD?.series || { dates: [], values: [] }, "Liabilities", C.bear), ...(f.NET ? [qser(f.NET.series, "Net", C.gold)] : [])], { height: 240, zero: true, fmt: v => fmt(v, 0) }) : PEND)}
+      ${panel(`${esc(cBy(focus).name)}: breakdown, latest`, table([{ t: "Item" }, { t: "Value", n: 1 }, { t: "Period" }], Object.entries(f).filter(([k]) => k !== "NET").map(([k, v]) => [esc(v.label), big(v.latest), `<span class="sm dim">${esc(v.period)}</span>`])))}</div>` +
+    `<p class="sm">Positions change with both transactions and price and exchange-rate moves, so a change in the net position is not the same as a capital flow.</p>`; });
+
+// ---- Foreign holders of US Treasuries (TIC)
+PAGES["flows/tic"] = G_(pg => { const T = GD().tic || {};
+  if (!T.rows) return header(pg, "Foreign holdings of US Treasuries.") + `<div class="pending">TIC data is not loaded yet.</div>`;
+  const rows = T.rows, top = rows.filter(r => !/total|of which|all other/i.test(r.name)).slice(0, 8), tot = rows.find(r => /grand total/i.test(r.name)), off = rows.find(r => /official/i.test(r.name));
+  const dates = [...T.months].reverse().map(m => m + "-15");
+  return header(pg, `Major foreign holders of US Treasury securities, end of ${esc(T.months[0])}. US$ billions.`) + metaStrip(["tic"]) +
+    `<div class="g g3">${kpi("Total foreign holdings", tot ? "$" + fmt(tot.latest / 1000, 2) + "tn" : "—", tot ? `${chg(tot.chg_12m, 0)} bn over 12 months` : "")}${kpi("Foreign official holders", off ? "$" + fmt(off.latest / 1000, 2) + "tn" : "—", off ? `${chg(off.chg_12m, 0)} bn over 12 months` : "")}${kpi("Largest holder", top[0] ? esc(top[0].name) : "—", top[0] ? "$" + fmt(top[0].latest, 0) + "bn" : "")}</div>` +
+    `<div class="g g-21">${panel("Largest holders, last 13 months, US$ bn", lineChart(top.slice(0, 6).map((r, i) => ({ name: r.name, color: PALETTE[i], dates, values: [...r.values].reverse() })), { height: 260, fmt: v => fmt(v, 0) }))}
+      ${panel("Holdings by country", table([{ t: "Holder" }, { t: esc(T.months[0]), n: 1 }, { t: "1 month", n: 1 }, { t: "12 months", n: 1 }], rows.map(r => [/total|of which/i.test(r.name) ? `<b>${esc(r.name)}</b>` : esc(r.name), nb(r.latest), chg(r.chg_1m), chg(r.chg_12m)])), "", "flush")}</div>` +
+    `<p class="sm">Holdings are recorded by where the securities are held in custody, so Belgium, Luxembourg, the Cayman Islands and the UK include assets held there for investors from other countries (China is widely thought to hold some Treasuries through Belgium).</p>`; });
+
+// ---- Monthly indicators (OECD)
+const OECD_SHOW = ["LI", "BCICP", "CCICP", "PRVM", "TOVM", "UNEMP", "CP", "IR3TIB", "IRLT", "EX", "IM"];
+PAGES["economies/monthly"] = G_(pg => { const O = GD().oecd || {}, Cn = O.countries || {};
+  if (!Object.keys(Cn).length) return header(pg, "Monthly indicators.") + `<div class="pending">OECD monthly indicators are not loaded yet.</div>`;
+  const meas = [...OECD_SHOW.filter(m => O.labels[m]), ...Object.keys(O.labels).filter(m => !OECD_SHOW.includes(m))];
+  const sel = pg.param && O.labels[pg.param] ? pg.param : "LI", ctrs = CTRY().filter(c => Cn[c.key]);
+  const cell = x => x ? `<span class="num" title="${esc(x.label)} · ${esc(x.transform || x.unit)} · ${esc(x.period)}">${fmt(x.latest, Math.abs(x.latest) >= 100 ? 1 : 2)}</span><div class="sm dim">${esc(x.period)}</div>` : `<span class="dim">—</span>`;
+  const any = m => ctrs.map(c => Cn[c.key][m]).find(Boolean);
+  return header(pg, "Monthly activity, sentiment and price indicators for the covered economies (OECD). Russia is not covered by the OECD.", { right: selectBox(pg, meas.map(m => [m, O.labels[m]]), sel, "Chart") }) + metaStrip(["oecd"]) +
+    panel(`${esc(O.labels[sel])}: ${esc(any(sel)?.transform || any(sel)?.unit || "")}`, lineChart(ctrs.filter(c => Cn[c.key][sel]).map((c, i) => ({ name: c.name, color: PALETTE[i], dates: Cn[c.key][sel].series.dates, values: Cn[c.key][sel].series.values })), { height: 280, refs: ["LI", "BCICP", "CCICP"].includes(sel) ? [{ v: 100, label: "100 = long-term average" }] : [], fmt: v => fmt(v, 1) })) +
+    panel("Latest readings", table([{ t: "Indicator" }, { t: "Measure" }, ...ctrs.map(c => ({ t: c.name.replace("United ", "U. "), n: 1 }))], meas.filter(m => ctrs.some(c => Cn[c.key][m])).map(m => [`<a href="#/economies/monthly/${m}">${esc(O.labels[m])}</a>`, `<span class="sm dim">${esc(any(m)?.transform || any(m)?.unit || "")}</span>`, ...ctrs.map(c => cell(Cn[c.key][m]))])), "Composite leading, business and consumer confidence indicators are amplitude-adjusted indexes where 100 is the long-term trend; above 100 and rising signals expansion.", "flush"); });
+
+// ---- Economic calendar (FRED feed + confirmed reference file)
+PAGES["command/calendar"] = pg => { const ref = (R("calendar").events || []).map(e => ({ ...e, status: e.status || "Confirmed" })), feed = (GD()?.calendar_feed?.events || []);
+  const today = new Date().toISOString().slice(0, 10), ev = [...ref, ...feed].filter(e => (e.end || e.date) >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const imp = { High: 0, Medium: 1, Low: 2 }, f = pg.param || "all", list = ev.filter(e => f === "all" || (f === "high" && e.importance === "High") || e.region === f);
+  const regions = [...new Set(ev.map(e => e.region))];
+  return header(pg, "Scheduled releases and meetings that move rates, the dollar, gold and Bitcoin.", { right: selectBox(pg, [["all", "All events"], ["high", "High importance"], ...regions.map(r => [r, r])], f, "Show") }) + (GD() ? metaStrip(["calendar_feed"]) : "") +
+    panel(`Upcoming (${list.length})`, list.length ? table([{ t: "Date" }, { t: "Event" }, { t: "Region" }, { t: "Importance" }, { t: "Status" }, { t: "Why it matters" }, { t: "Source" }], list.map(e => [`<span class="num">${esc(e.date)}${e.end ? "–" + esc(e.end.slice(8)) : ""}</span>`, imp[e.importance] === 0 ? `<b>${esc(e.event)}</b>` : esc(e.event), esc(e.region), chip(e.importance, e.importance === "High"), `<span class="sm ${e.status === "Estimated" ? "warn" : "dim"}">${esc(e.status)}</span>`, `<span class="sm">${esc(e.why || "")}</span>`, `<a class="sm" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.source)}</a>`]), {}) : `<span class="dim">No events.</span>`, "", "flush") +
+    `<p class="sm">US release dates come from the St. Louis Fed's release calendar and update daily. Central bank meetings outside the US are entered from each bank's published schedule. The Bitcoin difficulty date is an estimate based on recent block times.</p>`; };
+
+// ---- Central bank gold (IMF IFS) — extends the gold page
+const _cbGoldOld = PAGES["gold/central-banks"];
+PAGES["gold/central-banks"] = pg => { const base = _cbGoldOld(pg).replace(/<div class="pending"><b>Pending:<\/b> reserves by country[\s\S]*?<\/div><\/div>$/, "</div>"), G2 = GD()?.cb_gold;
+  if (!G2?.holders?.length) return base;
+  const h = G2.holders, top = h.slice(0, 6);
+  return base + panel(`Official gold reserves by country (IMF), tonnes, latest ${esc(G2.latest_period)}`, table([{ t: "Holder" }, { t: "Tonnes", n: 1 }, { t: "1 month", n: 1 }, { t: "12 months", n: 1 }, { t: "As of" }], h.map(r => [esc(r.name), `<span class="num">${fmt(r.tonnes, 1)}</span>`, chg(r.chg_1m), chg(r.chg_12m), `<span class="sm dim">${esc(r.period)}</span>`])), "Reported holdings only. Some buyers (notably China, by most analysts' estimates) report less than they buy; the WGC's quarterly figures above include an estimate of unreported purchases.", "flush") +
+    `<div style="margin-top:12px">${panel("Reported holdings over time, tonnes", lineChart(top.map((r, i) => ({ name: r.name, color: PALETTE[i], dates: r.series.dates, values: r.series.values })), { height: 260, fmt: v => fmt(v, 0) }))}</div>` + metaStrip(["cb_gold"]); };
+PAGES["institutional/cb-activity"] = pg => PAGES["gold/central-banks"]({ ...pg });
+
+// ---- Valuation & fundamentals
+PAGES["equities/valuation"] = G_(pg => { const V = GD().valuation || {}, dam = V.damodaran;
+  const vk = k => V[k] ? kpi(esc(V[k].name), fmt(V[k].latest, 2), `${esc(V[k].date)} · 30-year average ${fmt(V[k].avg_30y, 1)} · higher than ${V[k].pctile_30y}% of months since ${new Date().getFullYear() - 30}`) : "";
+  return header(pg, "Equity valuation. Free index-level valuation data exists only for the US (S&P 500); other markets are compared through country risk premiums.") + metaStrip(["valuation"]) +
+    (V.cape ? `<div class="g g4">${vk("cape")}${vk("pe")}${vk("ey")}${vk("dy")}</div>` +
+    `<div class="g g2">${panel(`Shiller CAPE since ${esc(V.cape.series.dates[0].slice(0, 4))}`, lineChart([{ name: "CAPE", color: C.gold, dates: V.cape.series.dates, values: V.cape.series.values }], { height: 240, refs: [{ v: V.cape.avg_30y, label: "30-year average" }], fmt: v => fmt(v, 0) }))}${V.ey ? panel("S&P 500 earnings yield vs dividend yield, %", lineChart([{ name: "Earnings yield", color: C.bull, dates: V.ey.series.dates, values: V.ey.series.values }, ...(V.dy ? [{ name: "Dividend yield", color: C.gold, dates: V.dy.series.dates, values: V.dy.series.values }] : [])], { height: 240, fmt: v => fmt(v, 1) })) : ""}</div>` : `<div class="pending">US valuation series are not loaded yet.</div>`) +
+    (dam ? panel(`Country risk and equity risk premiums (Damodaran, NYU Stern)${dam.updated ? " · " + esc(dam.updated) : ""}`, table(dam.header.map((h, i) => ({ t: h, n: i > 0 ? 1 : 0 })), CTRY().filter(c => dam.countries[c.key]).map(c => dam.header.map((h, i) => i === 0 ? `<b>${esc(c.name)}</b>` : `<span class="num">${esc(dam.countries[c.key][h] ?? "")}</span>`))), "Equity risk premium = the extra return investors demand over a risk-free rate; it combines a mature-market premium with a country premium based on sovereign default spreads.", "flush") : "") +
+    `<p class="sm">P/E for the other 19 indices is published in index providers' factsheets and by paid data vendors; it is not shown rather than estimated.</p>`; });
+
+// ---- Sector intelligence (US sector ETFs)
+PAGES["equities/sectors"] = G_(pg => { const sx = (GD().markets.sectors || []).filter(x => x.perf);
+  if (!sx.length) return header(pg, "Sector performance.") + `<div class="pending">Sector prices are not loaded yet.</div>`;
+  const by = (k) => [...sx].sort((a, b) => (b.perf[k] ?? -1e9) - (a.perf[k] ?? -1e9));
+  const ytd = by("ytd");
+  return header(pg, "US equity sectors through sector ETFs (Select Sector SPDRs plus semiconductors, regional banks and gold miners). Total price return in US$.") + metaStrip(["yahoo"]) +
+    `<div class="g g2">${panel("Year to date, %", barChart(ytd.map(x => x.name.replace(/ \(.+\)/, "").replace("Consumer ", "Cons. ").replace("Communication services", "Comm. services").replace("Information technology", "Tech")), ytd.map(x => x.perf.ytd), { diverging: true, height: 220, unit: "%", fmt: v => fmt(v, 1) }))}${panel("Relative to the S&P 500 over 3 months, percentage points", (() => { const r = [...sx].filter(x => x.rel_spx).sort((a, b) => b.rel_spx.m3 - a.rel_spx.m3); return barChart(r.map(x => x.name.replace(/ \(.+\)/, "").replace("Consumer ", "Cons. ").replace("Communication services", "Comm. services").replace("Information technology", "Tech")), r.map(x => x.rel_spx.m3), { diverging: true, height: 220, fmt: v => fmt(v, 1) }); })())}</div>` +
+    panel("Sector performance", table([{ t: "Sector" }, { t: "ETF" }, { t: "Last", n: 1 }, ...PERF_COLS, { t: "vs S&P 1m", n: 1 }, { t: "vs S&P 3m", n: 1 }, { t: "vs S&P 1y", n: 1 }, { t: "From 52w high", n: 1 }], by("m1").map(x => [`<b>${esc(x.name)}</b>`, `<span class="mono sm">${esc(x.ticker)}</span>`, `<span class="num">${fmt(x.perf.last, 2)}</span>`, ...perfCells(x.perf), chg(x.rel_spx?.m1), chg(x.rel_spx?.m3), chg(x.rel_spx?.y1), pct((x.perf.last / x.perf.hi52 - 1) * 100, 1)])), "Sorted by 1-month return. 'vs S&P' is the sector's return minus the S&P 500's over the same window, in percentage points.", "flush") +
+    `<p class="sm">Sector weights and returns for non-US indices need constituent data from index providers and are not yet shown.</p>`; });
+
+// ---- Sovereign wealth funds: honest status
+PAGES["flows/institutions"] = pg => pendingPage(pg, { lede: "Sovereign wealth funds, pension funds and other large institutions.", what: "The free sources tried so far do not offer a machine-readable feed: Norway's NBIM publishes holdings only as a web table and annual files, and US 13F filings are blocked from the cloud runner (the same SEC restriction as company financials). Both can be added through the local refresh script.", fields: "assets under management, allocation by country and asset class, largest holdings, changes", source: "NBIM annual holdings files, SEC 13F (local refresh), fund annual reports (GIC, ADIA, CPP, GPIF)" });
 
 boot();
