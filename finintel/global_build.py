@@ -103,7 +103,7 @@ def weekday(df: pd.DataFrame) -> pd.DataFrame:
     return df[df.index.dayofweek < 5]
 
 
-def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: dict, eer: dict, cftc: dict) -> dict:
+def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: dict, eer: dict, cftc: dict, cpi_latest: dict | None = None) -> dict:
     uv = usd_value(px)
     dxy = px.get(G.DXY)
     ccys = ["USD"] + [c for c, *_ in G.FX if c in uv]
@@ -143,7 +143,13 @@ def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: d
         rate = bis_rates.get(bk, {}).get("latest")
         us_rate = bis_rates.get("US", {}).get("latest")
         infl = infl_us = None
-        if imf_df is not None:
+        infl_src = None
+        cl = cpi_latest or {}
+        ckk = "ea" if a == "EUR" else ck
+        if ckk in cl and "us" in cl:
+            infl, infl_us = cl[ckk]["latest"], cl["us"]["latest"]
+            infl_src = {"period": cl[ckk]["period"], "us_period": cl["us"]["period"], "source": cl[ckk].get("source", "OECD"), "kind": "latest month, y/y"}
+        if infl is None and imf_df is not None:
             iso = "EURO" if a == "EUR" else next(x["iso3"] for x in G.COUNTRIES if x["key"] == ck)
             d = imf_df[(imf_df.code == "PCPIPCH") & (imf_df.year == YEAR - 1)]
             vi = d[d.iso3 == iso].value
@@ -153,6 +159,8 @@ def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: d
             vu = d[d.iso3 == "USA"].value
             infl = None if vi.empty else round(float(vi.iloc[0]), 2)
             infl_us = None if vu.empty else round(float(vu.iloc[0]), 2)
+            if infl is not None:
+                infl_src = {"period": str(YEAR - 1), "source": "IMF WEO", "kind": "annual average"}
         if infl is None:  # World Bank CPI fallback (latest year, may lag)
             iso_wb = "EMU" if a == "EUR" else next(x["iso3"] for x in G.COUNTRIES if x["key"] == ck)
             w, wu = wb.get("FP.CPI.TOTL.ZG", {}).get(iso_wb, {}).get("latest"), wb.get("FP.CPI.TOTL.ZG", {}).get("USA", {}).get("latest")
@@ -164,7 +172,7 @@ def currency_block(px: dict, bis_rates: dict, imf_df: pd.DataFrame | None, wb: d
                          "composite": round(sum(comp) / sum(wt for w, wt in (("w1", .2), ("m1", .3), ("m3", .3), ("y1", .2)) if sc[w] is not None), 2) if comp else None,
                          "absolute": absolute, "vol30": vol, "policy_rate": rate,
                          "rate_diff_vs_usd": None if rate is None or us_rate is None else round(rate["value"] - us_rate["value"], 2),
-                         "inflation": infl, "infl_diff_vs_us": None if infl is None or infl_us is None else round(infl - infl_us, 2),
+                         "inflation": infl, "infl_src": infl_src, "infl_diff_vs_us": None if infl is None or infl_us is None else round(infl - infl_us, 2),
                          "ppp_ratio": ppp, "reer": eer.get(bk, {}).get("R"), "neer": eer.get(bk, {}).get("N"),
                          "cftc": cftc.get(a)})
     ranked = sorted([s for s in strength if s["composite"] is not None], key=lambda s: -s["composite"])
@@ -390,7 +398,19 @@ def annual_change(s: pd.Series) -> pd.Series:
     return (a.pct_change() * 100).dropna()
 
 
+def _imf_now(d):
+    """Use the IMF's estimate for the year in progress when it exists (newer than last year's figure)."""
+    if not d:
+        return d
+    ys = d.get("series", {}).get("years", [])
+    if YEAR in ys:
+        i = ys.index(YEAR)
+        return {**d, "latest": {"value": d["series"]["values"][i], "year": YEAR, "kind": f"IMF estimate for {YEAR}, year in progress"}}
+    return d
+
+
 def rel_reports(px, wb, imf, rates, trade, extra) -> list:
+    imf = {code: {iso: _imf_now(v) for iso, v in d.items()} for code, d in (imf or {}).items()}
     def p(t):
         s = px.get(t)
         return D.perf(s) if s is not None else None
@@ -681,7 +701,7 @@ def dbn_labels_safe(ds, dim):
 
 # ----------------------------------------------------------------- build
 REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7, "positions": 30,
-                "banking": 7, "cb_gold": 7, "tic": 1, "oecd": 2, "calendar": 1, "valuation": 1, "gdp_q": 2, "reserves": 3, "iip": 3}
+                "banking": 7, "cb_gold": 7, "tic": 1, "oecd": 2, "calendar": 1, "valuation": 1, "national": 1, "gdp_q": 2, "reserves": 3, "iip": 3}
 
 
 def _age_days(prev, sec):
@@ -775,6 +795,17 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         cb_gold = section("cb_gold", lambda: c.try_("cbgold:all", lambda: X.collect_cb_gold(c)) or {}, {}, prev.get("cb_gold"))
     tic = section("tic", lambda: c.try_("tic:all", lambda: X.collect_tic(c)) or {}, {}, prev.get("tic"))
     oecd = section("oecd", lambda: c.try_("oecd:all", lambda: X.collect_oecd(c)) or {}, {}, prev.get("oecd"), complete=lambda v: len(v.get("countries", {})) >= 8)
+    national = section("national", lambda: c.try_("national:all", lambda: X.collect_national(c)) or {}, {}, prev.get("national"))
+    if oecd and national:  # newer national/regional releases replace older OECD copies of the same measure
+        oecd = json.loads(json.dumps(oecd))
+        for k, ms in national.items():
+            if k == "ea":
+                continue
+            for m, rec in ms.items():
+                cur = oecd["countries"].setdefault(k, {}).get(m)
+                if not cur or str(rec["period"]) > str(cur["period"]):
+                    oecd["countries"][k][m] = rec
+                    oecd["labels"].setdefault(m, rec["label"])
     cal_feed = section("calendar", lambda: c.try_("calendar:all", lambda: X.collect_calendar(c)) or {}, {}, prev.get("calendar_feed"))
     valuation = section("valuation", lambda: c.try_("valuation:all", lambda: X.collect_valuation(c)) or {}, {}, prev.get("valuation"),
                         complete=lambda v: "cape" in v and "damodaran" in v)
@@ -835,7 +866,31 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         s = px.get(t)
         markets["yields"].append({"key": k, "name": n, "ticker": t, "perf": D.perf(s) if s is not None else None, "series": D.ser(s, 520, 3) if s is not None else None})
 
-    fx = currency_block(px, rates, imf_df, wb, eer, cftc) if px else {}
+    cpi_latest = {k: v["CP"] for k, v in (oecd or {}).get("countries", {}).items() if v.get("CP")}
+    if (national or {}).get("ea", {}).get("CP"):
+        cpi_latest["ea"] = national["ea"]["CP"]
+    # confirmed central bank decisions newer than the BIS monthly series (reference/policy_decisions.json)
+    try:
+        dec = json.load(open(os.path.join(os.path.dirname(__file__), "..", "reference", "policy_decisions.json"))).get("decisions", [])
+    except Exception:
+        dec = []
+    for d in dec:
+        r = rates.get(d["bis"])
+        if r and r.get("latest") and d["date"][:7] > r["latest"]["date"]:
+            r = rates[d["bis"]] = json.loads(json.dumps(r))
+            r["latest"] = {"value": d["rate"], "date": d["date"], "source": d["source"], "url": d["url"], "override": True}
+            if d.get("change"):
+                r["last_move"] = {"size": d["change"], "date": d["date"][:7]}
+            r.setdefault("series", {"dates": [], "values": []})
+            r["series"]["dates"] = r["series"]["dates"] + [d["date"][:7]]
+            r["series"]["values"] = r["series"]["values"] + [d["rate"]]
+    # a price feed that stopped updating must not look current: blank its performance and say when it stopped
+    cutoff = (NOW - pd.Timedelta(days=21)).strftime("%Y-%m-%d")
+    for grp in ("indices", "commodities", "proxies", "sectors", "yields"):
+        for it in markets[grp]:
+            if it.get("perf") and it["perf"].get("date") and it["perf"]["date"] < cutoff:
+                it["stale_since"], it["perf"] = it["perf"]["date"], None
+    fx = currency_block(px, rates, imf_df, wb, eer, cftc, cpi_latest) if px else {}
     matrix = asset_matrix(px) if px else {}
     reports = rel_reports(px, wb, imf, rates, trade, extra or {})
 
@@ -896,7 +951,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
             "rates": rates, "eer": eer, "wb": wb, "wb_labels": {k: v[0] for k, v in G.WB.items()}, "wb_units": {k: v[1] for k, v in G.WB.items()},
             "imf": imf, "imf_labels": {k: v[0] for k, v in G.IMF.items()}, "trade": trade, "companies": companies,
             "company_sources": G.CORPORATE_SOURCES, "proxied": c.proxied,
-            "banking": banking, "iip": iip, "gdp_q": gdp_q, "reserves": reserves, "reserves_all": reserves_all, "cb_gold": cb_gold, "tic": tic, "oecd": oecd, "calendar_feed": cal_feed, "valuation": valuation, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
+            "banking": banking, "iip": iip, "gdp_q": gdp_q, "national": national, "reserves": reserves, "reserves_all": reserves_all, "cb_gold": cb_gold, "tic": tic, "oecd": oecd, "calendar_feed": cal_feed, "valuation": valuation, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
             "meta": meta, "coverage": coverage, "revisions": revisions, "errors": c.errors,
             "fetched": fetched, "carried": carried, "refresh_days": REFRESH_DAYS}
 

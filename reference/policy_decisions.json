@@ -1,0 +1,7 @@
+{
+ "note": "Confirmed central bank decisions newer than the BIS monthly policy-rate series. Each row overrides BIS only while BIS has not yet caught up. Source: the central bank's own announcement.",
+ "decisions": [
+  {"bis": "GB", "date": "2026-11-05", "rate": 4.00, "change": 0.25, "bank": "Bank of England", "source": "Bank of England, Monetary Policy Report November 2026", "url": "https://www.bankofengland.co.uk/monetary-policy-report/2026/november-2026"},
+  {"bis": "IN", "date": "2026-10-07", "rate": 5.50, "change": 0.25, "bank": "Reserve Bank of India", "source": "RBI, MPC resolution 5-7 October 2026", "url": "https://rbi.org.in/scriptS/BS_PressReleaseDisplay.aspx?prid=63742"}
+ ]
+}

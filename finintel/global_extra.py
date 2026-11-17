@@ -529,3 +529,83 @@ def collect_iip_imf(c) -> dict:
     if len(out) < 5:
         raise RuntimeError(f"IMF IIP: only {len(out)} countries")
     return out
+
+
+# ------------------------------------------------------------------ national / regional sources newer than the OECD copy
+def _yoy(s: pd.Series) -> pd.Series:
+    s = s.dropna()
+    s.index = pd.to_datetime(s.index).to_period("M")
+    return ((s / s.shift(12) - 1) * 100).dropna()
+
+
+def _rec(label, unit, s: pd.Series, source, transform=""):
+    s = s.dropna()
+    return {"label": label, "unit": unit, "transform": transform, "adjustment": "", "latest": round(float(s.iloc[-1]), 2), "period": str(s.index[-1])[:7],
+            "prev": round(float(s.iloc[-2]), 2) if len(s) > 1 else None, "source": source,
+            "series": _series([str(x)[:7] for x in s.index[-84:]], s.values[-84:], None, 2)}
+
+
+def _eurostat(ds: str, params: dict) -> dict:
+    j = D.get(f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{ds}", params, timeout=60).json()
+    geo = j["dimension"]["geo"]["category"]["index"]
+    tim = j["dimension"]["time"]["category"]["index"]
+    nt = len(tim)
+    inv_t = {v: k for k, v in tim.items()}
+    out = {}
+    for g, gi in geo.items():
+        pts = {inv_t[i - gi * nt]: v for i, v in ((int(k), v) for k, v in j["value"].items()) if gi * nt <= i < (gi + 1) * nt}
+        if pts:
+            out[g] = pd.Series(pts).sort_index()
+    return out
+
+
+def _ons(uri: str) -> pd.Series:
+    t = D.get("https://www.ons.gov.uk/generator", {"format": "csv", "uri": uri}, timeout=60).text
+    rows = re.findall(r'"(\d{4}) ([A-Z]{3})","(-?[\d.]+)"', t)
+    mon = {m: i + 1 for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"])}
+    s = pd.Series({f"{y}-{mon[m]:02d}": float(v) for y, m, v in rows if m in mon}).sort_index()
+    if s.empty:
+        raise RuntimeError(f"ONS {uri}: no monthly rows")
+    return s
+
+
+def collect_national(c) -> dict:
+    from .connectors import fred
+    out: dict = {}
+    put = lambda k, m, rec: out.setdefault(k, {}).__setitem__(m, rec)  # noqa: E731
+    if os.environ.get("FRED_API_KEY"):
+        for k, codes in (("fr", ["FR"]), ("de", ["DE"]), ("ch", ["CH"]), ("ea", ["EZ20", "EZ19", "EA20"])):
+            s = None
+            for code in codes:
+                s = c.try_(f"national:hicp:{k}:{code}", lambda: fred(f"CP0000{code}M086NEST"))
+                if s is not None:
+                    break
+            if s is not None and len(s) > 13:
+                put(k, "CP", _rec("Consumer prices (HICP)", "Growth rate", _yoy(s), "Eurostat HICP via FRED", "Growth rate, over 1 year"))
+        s = c.try_("national:ppi:us", lambda: fred("PPIACO"))
+        if s is not None and len(s) > 13:
+            put("us", "PP", _rec("Producer prices (all commodities)", "Growth rate", _yoy(s), "US BLS via FRED", "Growth rate, over 1 year"))
+    since = (NOW - timedelta(days=8 * 365)).strftime("%Y-%m")
+    un = c.try_("national:eurostat-unemp", lambda: _eurostat("une_rt_m", {"geo": ["FR", "DE", "EA20"], "s_adj": "SA", "age": "TOTAL", "sex": "T", "unit": "PC_ACT", "sinceTimePeriod": since}))
+    for g, k in (("FR", "fr"), ("DE", "de"), ("EA20", "ea")):
+        if un and g in un:
+            put(k, "UNEMP", _rec("Unemployment", "Percentage of labour force", un[g], "Eurostat", ""))
+    pp = c.try_("national:eurostat-ppi", lambda: _eurostat("sts_inppd_m", {"geo": ["FR", "DE"], "nace_r2": "B-E36", "unit": "PCH_SM", "indic_bt": "PRC_PRR_DOM", "s_adj": "NSA", "sinceTimePeriod": since}))
+    for g, k in (("FR", "fr"), ("DE", "de")):
+        if pp and g in pp:
+            put(k, "PP", _rec("Producer prices (industry, domestic)", "Growth rate", pp[g], "Eurostat", "Growth rate, over 1 year"))
+    for m, uri, lab, unit, tr in (("CP", "/economy/inflationandpriceindices/timeseries/d7g7/mm23", "Consumer prices (CPI)", "Growth rate", "Growth rate, over 1 year"),
+                                  ("UNEMP", "/employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsx/lms", "Unemployment (3-month average)", "Percentage of labour force", ""),
+                                  ("PP", "/economy/inflationandpriceindices/timeseries/gb7s/mm22", "Producer output prices", "Growth rate", "Growth rate, over 1 year")):
+        s = c.try_(f"national:ons:{m}", lambda: _ons(uri))
+        if s is not None:
+            put("gb", m, _rec(lab, unit, s, "UK Office for National Statistics", tr))
+    snb = c.try_("national:snb-cpi", lambda: D.get("https://data.snb.ch/api/cube/plkopr/data/csv/en", timeout=60).text)
+    if snb:
+        rows = re.findall(r'"(\d{4}-\d{2})";"VVP";"(-?[\d.]+)"', snb)
+        if rows:
+            s = pd.Series({p: float(v) for p, v in rows}).sort_index()
+            put("ch", "CP", _rec("Consumer prices (CPI)", "Growth rate", s, "Swiss National Bank / FSO", "Growth rate, over 1 year"))
+    if not out:
+        raise RuntimeError("no national data")
+    return out
