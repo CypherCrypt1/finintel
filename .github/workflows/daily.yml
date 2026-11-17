@@ -30,6 +30,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Run engine
         env:
+          PYTHONUNBUFFERED: "1"
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}   # optional; add it under Settings > Secrets > Actions
         run: |
           python -m finintel.run --site site --db data/finintel.sqlite
