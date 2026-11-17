@@ -21,6 +21,10 @@ def walk(n=2500, start=100.0):
 
 @pytest.fixture
 def fake(monkeypatch):
+    install_fakes(monkeypatch)
+
+
+def install_fakes(monkeypatch):
     monkeypatch.setattr(D, "yahoo", lambda sym, rng="2y": walk(start=1.1 if "=X" in sym else 100))
     def wb(code, iso):
         rows = [(i, y, float(RNG.normal(2, 1)) * (1e11 if "CD" in code else 1)) for i in iso for y in range(2005, 2025)]

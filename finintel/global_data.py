@@ -23,7 +23,7 @@ SEC_UA = {"User-Agent": "SOVEREIGN research cyphercrypt1@users.noreply.github.co
 TODAY = pd.Timestamp(datetime.now(timezone.utc).date())
 
 
-def get(url, params=None, headers=None, timeout=40, retries=1, pause=1.5):
+def get(url, params=None, headers=None, timeout=25, retries=1, pause=1.5):
     last = None
     for i in range(retries + 1):
         try:
@@ -88,7 +88,7 @@ def ser(s: pd.Series, n: int = 520, nd: int = 4) -> dict:
 # --------------------------------------------------------------- World Bank
 def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
     url = f"https://api.worldbank.org/v2/country/{';'.join(iso3)}/indicator/{code}"
-    j = get(url, {"format": "json", "per_page": 2000, "date": "2000:2026"}, timeout=60, retries=2).json()
+    j = get(url, {"format": "json", "per_page": 2000, "date": "2000:2026"}, timeout=40, retries=1).json()
     if not isinstance(j, list) or len(j) < 2 or not j[1]:
         raise ConnectorError(f"World Bank {code}: empty")
     rows = [(x["countryiso3code"] or x["country"]["id"], int(x["date"]), x["value"]) for x in j[1] if x["value"] is not None]
@@ -98,7 +98,7 @@ def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
 
 # --------------------------------------------------------------------- IMF
 def imf(code: str, iso3: list[str]) -> pd.DataFrame:
-    j = get(f"https://www.imf.org/external/datamapper/api/v1/{code}/{'/'.join(iso3)}", timeout=60, retries=2).json()
+    j = get(f"https://www.imf.org/external/datamapper/api/v1/{code}/{'/'.join(iso3)}", timeout=40, retries=1).json()
     vals = j.get("values", {}).get(code, {})
     rows = [(c, int(y), v) for c, ys in vals.items() for y, v in ys.items() if v is not None]
     if not rows:
@@ -113,7 +113,7 @@ def bis(flow: str, key: str, start: str) -> pd.DataFrame:
     last = None
     for u, p in urls:
         try:
-            r = get(u, p, headers={"User-Agent": BROWSER["User-Agent"], "Accept": "text/csv"}, timeout=60)
+            r = get(u, p, headers={"User-Agent": BROWSER["User-Agent"], "Accept": "text/csv"}, timeout=40)
             df = pd.read_csv(io.StringIO(r.text))
             cols = {c.upper(): c for c in df.columns}
             need = ["REF_AREA", "TIME_PERIOD", "OBS_VALUE"]
@@ -129,7 +129,7 @@ def bis(flow: str, key: str, start: str) -> pd.DataFrame:
 
 # ----------------------------------------------------------------- Comtrade
 def comtrade_partner_names() -> dict:
-    j = get("https://comtradeapi.un.org/files/v1/app/reference/partnerAreas.json", timeout=60).json()
+    j = get("https://comtradeapi.un.org/files/v1/app/reference/partnerAreas.json", timeout=40).json()
     return {int(x["id"]): x["text"] for x in j.get("results", []) if str(x.get("id", "")).lstrip("-").isdigit()}
 
 
@@ -139,7 +139,7 @@ def comtrade(reporter: int, flow: str, cmd: str, partner: str | None, years=(202
         if partner is not None:
             p["partnerCode"] = partner
         try:
-            j = get("https://comtradeapi.un.org/public/v1/preview/C/A/HS", p, timeout=60, retries=1, pause=3).json()
+            j = get("https://comtradeapi.un.org/public/v1/preview/C/A/HS", p, timeout=40, retries=1, pause=3).json()
         except ConnectorError:
             time.sleep(2)
             continue
@@ -165,7 +165,7 @@ INSTANT = {"assets", "liabilities", "equity", "cash", "debt"}
 
 
 def sec_company(cik: int) -> dict:
-    j = get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json", headers=SEC_UA, timeout=60).json()
+    j = get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json", headers=SEC_UA, timeout=40).json()
     facts = j.get("facts", {}).get("us-gaap", {})
     out = {"cik": cik, "name": j.get("entityName"), "fields": {}}
     for field, tags in SEC_TAGS.items():

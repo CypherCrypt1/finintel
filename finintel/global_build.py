@@ -20,6 +20,7 @@ YEAR = NOW.year
 class Collector:
     def __init__(self, store, offline=False):
         self.store, self.offline, self.errors, self.saved = store, offline, {}, []
+        self.fails, self.t0 = {}, time.time()
 
     def keep(self, sid, s: pd.Series):
         if s is not None and not s.dropna().empty and not self.offline:
@@ -36,11 +37,21 @@ class Collector:
         return s
 
     def try_(self, sid, fn):
+        src = sid.split(":")[0]
+        if self.fails.get(src, 0) >= 4:
+            self.errors[sid] = "skipped: source failed 4 times in a row this run"
+            return None
         try:
-            return fn()
+            out = fn()
+            self.fails[src] = 0
+            return out
         except Exception as e:
+            self.fails[src] = self.fails.get(src, 0) + 1
             self.errors[sid] = f"{type(e).__name__}: {str(e)[:200]}"
             return None
+
+    def stage(self, name):
+        print(f"[global] {name} ({time.time() - self.t0:.0f}s, {len(self.errors)} errors so far)", flush=True)
 
 
 # ------------------------------------------------------------------ markets
@@ -600,12 +611,18 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
 def build(store, offline=False, extra=None, calendar=None, prev=None) -> dict:
     c = Collector(store, offline)
     t0 = time.time()
+    c.stage("start markets")
     px = collect_markets(c)
+    c.stage("start bis")
     rates, eer = collect_bis(c) if not offline else ({}, {})
+    c.stage("start worldbank")
     wb, wb_pub = collect_wb(c) if not offline else ({}, {})
+    c.stage("start imf")
     imf_df = collect_imf(c) if not offline else None
     imf = imf_block(imf_df)
+    c.stage("start comtrade")
     trade = collect_trade(c)
+    c.stage("start sec")
     companies = collect_companies(c)
     cftc = {}
     for ccy, code in G.CFTC_FX.items():
