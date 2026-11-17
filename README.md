@@ -1,4 +1,10 @@
-# Financial Intelligence Engine: v0 prototype (gold and Bitcoin)
+# SOVEREIGN — Global Financial Intelligence
+
+*Intelligence Without Influence.*
+
+Live site: https://cyphercrypt1.github.io/finintel/
+
+## Engine (gold and Bitcoin)
 
 Phase 0 of the platform described in the specification. It collects free public data, scores
 each driver from -2 (bearish) to +2 (bullish), combines them into composite scores for three
@@ -10,7 +16,8 @@ self-contained dashboard (`output/dashboard.html`).
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m finintel.run                                 # writes output/dashboard.html + results.json
+python -m finintel.run                                 # writes site/ (serve it: python -m http.server -d site)
+python -m finintel.run --offline                       # rebuild from data/finintel.sqlite without network
 ```
 
 Open `output/dashboard.html` in a browser. Run it once a day (Task Scheduler or cron) to
@@ -64,3 +71,10 @@ re-fitted after 6 to 12 months of logged outlooks (spec section 7).
 The AI research layer (Phase 3) replaces the rule-based outlook text. PostgreSQL and TimescaleDB
 replace SQLite in Phase 1, and Telegram alerts come in Phase 3. Research tool for personal use;
 not investment advice.
+
+## Website (SOVEREIGN interface)
+
+- `web/`: the static site (index.html, styles.css, app.js core, pages.js renderers); 88 pages across 10 sections.
+- `reference/`: hand-entered, sourced data (calendar, central banks, WGC demand, ETF flows, geopolitics, briefings). Edit these JSON files to update those panels.
+- `finintel/technicals.py`, `quant.py`, `decision.py`: technical indicators, correlations/regimes/backtests, and the −100..+100 scores with confidence and data quality.
+- Each daily run writes `site/data/sovereign.json`; GitHub Actions publishes `site/` to GitHub Pages.

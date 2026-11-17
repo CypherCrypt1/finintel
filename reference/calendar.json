@@ -1,0 +1,6 @@
+{"note": "Hand-maintained list of scheduled events. Add rows as dates are confirmed by the issuing institution.",
+ "events": [
+  {"date": "2026-12-08", "end": "2026-12-09", "event": "FOMC meeting (Federal Reserve)", "region": "US", "importance": "High",
+   "why": "a 25 bp hike is fully priced; guidance on 2027 matters more for gold and Bitcoin than the decision itself",
+   "source": "BabyPips, 13 Nov 2026 (CME FedWatch)", "url": "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"}
+ ]}

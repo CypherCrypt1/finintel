@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOVEREIGN — Global Financial Intelligence</title>
+<meta name="description" content="SOVEREIGN — Global Financial Intelligence. Intelligence Without Influence.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a0b0d'/%3E%3Cpath d='M16 5 26 10.5v11L16 27 6 21.5v-11z' fill='none' stroke='%23c6a052' stroke-width='2'/%3E%3Cpath d='M16 11v10' stroke='%23c6a052' stroke-width='2'/%3E%3C/svg%3E">
+<script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <button class="menu-btn" id="menuBtn" aria-label="Open navigation">☰</button>
+  <div class="brand" onclick="location.hash='#/command/dashboard'">
+    <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 27 9.2v13.6L16 29 5 22.8V9.2z" fill="none" stroke="#c6a052" stroke-width="1.6"/><path d="M16 10v12M11 13.5v5M21 13.5v5" stroke="#c6a052" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <div><div class="brand-name">SOVEREIGN</div><div class="brand-sub">Global Financial Intelligence</div></div>
+  </div>
+  <div class="search">
+    <svg viewBox="0 0 16 16" fill="none" stroke-width="2"><circle cx="7" cy="7" r="5"/><path d="m11 11 4 4"/></svg>
+    <input id="q" placeholder="Search pages…  ( / )" autocomplete="off" aria-label="Search pages">
+    <div class="res" id="qres"></div>
+  </div>
+  <div class="ticker" id="ticker"></div>
+  <div class="stamp" id="stamp"></div>
+</header>
+<nav class="side" id="side" aria-label="Main navigation"></nav>
+<main class="main" id="main"><div class="dim">Loading intelligence…</div></main>
+<div id="tip" role="tooltip"></div>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+</body>
+</html>

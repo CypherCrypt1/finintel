@@ -1,0 +1,22 @@
+{"etf_monthly": {"class": "Fact (issuer data via SoSoValue / Farside)",
+   "rows": [["2026-06", -4509.7, 70.9], ["2026-07", 172.8, 76.3], ["2026-08", 3522.8, 99.6], ["2026-09", 2648.0, 108.0],
+            ["2026-10", -515.0, 98.1]],
+   "columns": ["Month", "Net flow ($m)", "Month-end net assets ($bn)"],
+   "sources": [["Spoted Crypto monthly table, 6 Nov 2026", "https://www.spotedcrypto.com/bitcoin-etf-flows-2026-11-04/"]]},
+ "etf_recent": {"rows": [["Week of 2–6 Nov 2026", "−$1.28bn", "worst week since late June; 2026 net flows turned negative (−$914m)"],
+                         ["November to 13 Nov", "close to −$2bn", "five straight sessions of outflows"],
+                         ["ETF outflows vs new supply, 2–6 Nov", "about 5.2×", "≈3,150 BTC mined that week"]],
+   "sources": [["The Block, 7 Nov 2026", "https://theblock.co/news/markets/2026-11-07-bitcoin-etfs-flip-negative-for-2026-after-1-28-billion-outflow-week-worst-since-june-435984"],
+               ["investingLive, 13 Nov 2026", "https://investinglive.com/cryptocurrency/bitcoin-dipped-under-70k-first-time-since-august/"],
+               ["CoinStats weekly ETF report", "https://coinstats.app/news/59499a339fec6491ef38a0580daa5efe5d41056cf080b85ce327ea18bed0c4af_Spot-Bitcoin-ETFs-Weekly-Report-128B-in-Outflows-November-26-2026/"]]},
+ "exchange_reserves": {"value": "2.83M BTC", "detail": "98th percentile of the past year (z = +2.34)", "as_of": "early Nov 2026",
+   "class": "Estimate (vendor entity labelling)", "source": ["CryptoQuant QuickTake", "https://cryptoquant.com/insights/quicktake/6af0bfa898fe666a74dfc673"]},
+ "mining_notes": [
+   {"date": "2026-11-09", "text": "Hashprice $31.89/PH/s/day, −2.8% w/w and 10.8% below its 30-day average; hashrate −7.8% w/w.",
+    "source": ["Hashrate Index roundup, 9 Nov 2026", "https://hashrateindex.com/blog/hashrate-index-roundup-november-9-2026/"]},
+   {"date": "Nov 2026", "text": "Core Scientific plans to wind down Bitcoin mining by Q4 2026 as it shifts capacity to AI.",
+    "source": ["CryptoSlate via Coinalyze news feed", "https://coinalyze.net/bitcoin/usdc/deribit/btc_usdc-20nov26/price-chart-live/"]}],
+ "corporate_notes": [
+   {"date": "2026-11-09", "text": "Strategy funded further Bitcoin purchases with common-stock proceeds during 2–8 Nov (filing 9 Nov).",
+    "source": ["CryptoSlate via Coinalyze news feed", "https://coinalyze.net/bitcoin/usdc/deribit/btc_usdc-14nov26/price-chart-live/"]}],
+ "issuance": {"subsidy_btc": 3.125, "blocks_per_day": 144, "since": "2024-04-20 halving", "next_halving": "around April 2028 (estimate: block 1,050,000)"}}

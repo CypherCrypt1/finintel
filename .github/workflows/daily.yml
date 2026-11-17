@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["manual_inputs/**", "finintel/**"]
+    paths: ["manual_inputs/**", "finintel/**", "web/**", "reference/**"]
 
 permissions:
   contents: write     # to save the point-in-time database back to the repo
@@ -32,13 +32,12 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}   # optional; add it under Settings > Secrets > Actions
         run: |
-          mkdir -p site
-          python -m finintel.run --out site/index.html --db data/finintel.sqlite
+          python -m finintel.run --site site --db data/finintel.sqlite
       - name: Save database history
         run: |
           git config user.name "finintel-bot"
           git config user.email "finintel-bot@users.noreply.github.com"
-          git add data/finintel.sqlite
+          git add data/finintel.sqlite data/last_results.json data/score_history.csv
           git diff --cached --quiet || git commit -m "Daily data $(date -u +%F)"
           git pull --rebase -q origin main && git push
       - uses: actions/configure-pages@v5

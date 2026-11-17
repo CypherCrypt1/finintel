@@ -1,0 +1,9 @@
+{"items": [
+  {"date": "2026-11-12", "region": "Middle East", "headline": "US–Iran talks stall; fading peace hopes lift oil and revive inflation fears",
+   "gold": "Safe-haven demand is being outweighed: higher oil feeds rate-hike expectations, which weighs on gold.",
+   "bitcoin": "Risk-off and higher yields weigh on Bitcoin alongside other risk assets.",
+   "source": ["Khaleej Times / Reuters", "https://www.khaleejtimes.com/business/gold-drops-3-to-over-one-year-low-as-fading-middle-east-peace-hopes-fan-inflation-fears"]},
+  {"date": "2026-11-12", "region": "Russia", "headline": "Russia's central bank sets 22 Nov as the earliest start for exchange crypto trading, subject to approval",
+   "gold": "No direct effect.", "bitcoin": "Possible new regulated access channel; small near-term effect.",
+   "source": ["NewsBTC via Coinalyze news feed", "https://coinalyze.net/bitcoin/usdc/deribit/btc_usdc-16nov26/price-chart-live/"]}
+ ]}

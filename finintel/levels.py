@@ -32,19 +32,23 @@ def _cluster(points: list, tol: float) -> list:
 def key_levels(df: pd.DataFrame, n: int = 2) -> dict:
     last = float(df.close.iloc[-1])
     vol = df.close.pct_change().tail(60).std() or 0.01
+    yr = df.tail(365)
     highs, lows = swing_points(df)
     zones = _cluster(highs + lows, tol=max(vol, 0.004))
     sup = sorted([z for z in zones if z[1] < last], key=lambda z: -z[1])[:n]
     res = sorted([z for z in zones if z[1] > last], key=lambda z: z[1])[:n]
     sma200 = float(df.close.tail(200).mean()) if len(df) >= 180 else None
-    yr = df.tail(365)
 
     def fmt(z, kind):
         return {"price": round(z[1], 2), "label": f"{kind}: swing level, {z[2]} touch(es), last {z[0]:%d %b %Y}"}
 
+    out_sup = [fmt(z, "Support") for z in sup]
+    lo = float(yr.low.min())
+    if len(out_sup) < n and lo < last and all(abs(x["price"] / lo - 1) > 0.004 for x in out_sup):
+        out_sup.append({"price": round(lo, 2), "label": f"52-week low, {yr.low.idxmin():%d %b %Y}"})
     return {
         "last": last,
-        "support": [fmt(z, "Support") for z in sup],
+        "support": out_sup,
         "resistance": [fmt(z, "Resistance") for z in res],
         "sma200": round(sma200, 2) if sma200 else None,
         "high_52w": round(float(yr.high.max()), 2),

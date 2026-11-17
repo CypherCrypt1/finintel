@@ -73,15 +73,24 @@ def test_missing_driver_and_contested_score():
 
 
 def test_end_to_end(offline, tmp_path):
-    out = tmp_path / "dash.html"
-    run.main(["--out", str(out), "--manual", str(Path(__file__).resolve().parent.parent / "manual_inputs"),
+    site = tmp_path / "site"
+    run.main(["--site", str(site), "--manual", str(Path(__file__).resolve().parent.parent / "manual_inputs"),
               "--db", str(tmp_path / "t.sqlite")])
-    res = json.loads(out.with_suffix(".json").read_text())
+    res = json.loads((site / "data" / "sovereign.json").read_text())
     assert {a["symbol"] for a in res["assets"]} == {"XAU", "BTC"}
     for a in res["assets"]:
-        assert set(a["scores"]) == {"short", "medium", "long"}
+        for hz in ("short", "medium", "long"):
+            d = a["decision"][hz]
+            assert d["combined"] is None or -100 <= d["combined"] <= 100
+            assert d["confidence"]["label"] in ("High", "Medium", "Low")
         assert a["levels"]["sma200"] is not None
-        assert any(d["signal"] is not None for d in a["drivers"])
-        assert len(a["outlooks"]) == 3
-    html = out.read_text()
-    assert "const DATA =" in html and "</script>" in html
+        assert len(a["outlooks"]) == 3 and len(a["scenarios"]) == 3
+        assert a["technicals"]["daily"]["signals"]
+        assert "monitor" in a["what_changed"]
+    assert res["quant"]["corr_90"]["keys"]
+    assert (site / "index.html").exists() and (site / "reference" / "calendar.json").exists()
+    # second run compares against the first
+    run.main(["--site", str(site), "--manual", str(Path(__file__).resolve().parent.parent / "manual_inputs"),
+              "--db", str(tmp_path / "t.sqlite")])
+    res2 = json.loads((site / "data" / "sovereign.json").read_text())
+    assert res2["assets"][0]["what_changed"]["basis"] == "previous run"
