@@ -681,7 +681,7 @@ def dbn_labels_safe(ds, dim):
 
 # ----------------------------------------------------------------- build
 REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7, "positions": 30,
-                "banking": 7, "iip": 7, "cb_gold": 7, "tic": 1, "oecd": 2, "calendar": 1, "valuation": 1}
+                "banking": 7, "cb_gold": 7, "tic": 1, "oecd": 2, "calendar": 1, "valuation": 1, "gdp_q": 2, "reserves": 3, "iip": 3}
 
 
 def _age_days(prev, sec):
@@ -703,7 +703,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     def section(name, fetch, empty, prev_val, complete=None):
         """Fetch a section if due; otherwise, or on failure, carry forward the previous good copy."""
         age = _age_days(prev, name)
-        due = offline is False and (age is None or age >= REFRESH_DAYS.get(name, 0) or not prev_val)
+        force = name in os.environ.get("FORCE_SECTIONS", "").split(",") or os.environ.get("FORCE_SECTIONS") == "all"
+        due = offline is False and (force or age is None or age >= REFRESH_DAYS.get(name, 0) or not prev_val)
         if not due and prev_val:
             return prev_val
         val = fetch() if not offline else empty
@@ -761,13 +762,23 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
                         complete=lambda v: sum(1 for x in v.values() if x.get("direct_outward") or x.get("portfolio_assets")) >= 8)
     c.stage("start extra")
     banking = section("banking", lambda: c.try_("banking:all", lambda: X.collect_banking(c)) or {}, {}, prev.get("banking"), complete=lambda v: len(v.get("countries", {})) >= 9)
-    iip = section("iip", lambda: c.try_("iip:all", lambda: X.collect_iip(c)) or {}, {}, prev.get("iip"), complete=lambda v: len(v) >= 9)
-    cb_gold = section("cb_gold", lambda: c.try_("cbgold:all", lambda: X.collect_cb_gold(c)) or {}, {}, prev.get("cb_gold"))
+    def _iip():
+        new = c.try_("iip:imfapi", lambda: X.collect_iip_imf(c)) or {}
+        old = {} if len(new) >= 9 else (c.try_("iip:all", lambda: X.collect_iip(c)) or {})
+        return {**old, **new}
+    iip = section("iip", _iip, {}, prev.get("iip"), complete=lambda v: len(v) >= 9)
+    reserves_all = section("reserves", lambda: c.try_("reserves:all", lambda: X.collect_reserves(c)) or {}, {}, prev.get("reserves_all"),
+                           complete=lambda v: len(v.get("reserves", {})) >= 8)
+    reserves = (reserves_all or {}).get("reserves", {})
+    cb_gold = (reserves_all or {}).get("cb_gold") or {}
+    if not cb_gold.get("holders"):
+        cb_gold = section("cb_gold", lambda: c.try_("cbgold:all", lambda: X.collect_cb_gold(c)) or {}, {}, prev.get("cb_gold"))
     tic = section("tic", lambda: c.try_("tic:all", lambda: X.collect_tic(c)) or {}, {}, prev.get("tic"))
     oecd = section("oecd", lambda: c.try_("oecd:all", lambda: X.collect_oecd(c)) or {}, {}, prev.get("oecd"), complete=lambda v: len(v.get("countries", {})) >= 8)
     cal_feed = section("calendar", lambda: c.try_("calendar:all", lambda: X.collect_calendar(c)) or {}, {}, prev.get("calendar_feed"))
     valuation = section("valuation", lambda: c.try_("valuation:all", lambda: X.collect_valuation(c)) or {}, {}, prev.get("valuation"),
                         complete=lambda v: "cape" in v and "damodaran" in v)
+    gdp_q = section("gdp_q", lambda: c.try_("gdpq:all", lambda: X.collect_gdp_q(c)) or {}, {}, prev.get("gdp_q"), complete=lambda v: len(v) >= 8)
     c.stage("start sec")
     companies = section("companies", lambda: collect_companies(c), [], prev.get("companies"))
     local = os.path.join(os.path.dirname(prev_path or "."), "companies.json")
@@ -858,11 +869,15 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         "banking": D.meta("Bank for International Settlements", "Locational Banking Statistics (WS_LBS_D_PUB), cross-border positions",
                           "https://data.bis.org/topics/LBS", freq="Quarterly", kind="Actual", confidence="High",
                           note="Cross-border claims and liabilities of banks by location; published about 4 months after quarter end."),
-        "iip": D.meta("IMF (via DBnomics)", "Balance of Payments: International Investment Position", "https://db.nomics.world/IMF/BOP",
+        "iip": D.meta("IMF data portal (fallback: DBnomics)", "International Investment Position", "https://data.imf.org/",
                       freq="Quarterly (annual where quarterly is not reported)", kind="Actual", confidence="High", note="Stocks at period end, US$."),
-        "cb_gold": D.meta("IMF (via DBnomics)", "International Financial Statistics: official gold reserves (volume)", "https://db.nomics.world/IMF/IFS",
+        "cb_gold": D.meta("IMF data portal", "International Reserves and Foreign Currency Liquidity (IRFCL): gold volume", "https://data.imf.org/",
                           freq="Monthly", kind="Actual (as reported by central banks)", confidence="High",
-                          note="Converted from million troy ounces to tonnes. IFS on DBnomics may lag the IMF's newer data portal by several months."),
+                          note="Converted from million troy ounces to tonnes. Falls back to IFS via DBnomics (older) if the portal is unavailable."),
+        "reserves": D.meta("IMF data portal", "IRFCL: official reserve assets, gold and foreign-currency reserves", "https://data.imf.org/",
+                           freq="Monthly", kind="Actual", confidence="High", note="FX reserves = official reserve assets minus gold at market value."),
+        "gdp_q": D.meta("OECD", "Quarterly national accounts: real GDP growth", "https://data-explorer.oecd.org/", freq="Quarterly", kind="Actual (first estimates are revised)",
+                        confidence="High", note="Calendar and seasonally adjusted; y/y and q/q growth of chain-linked volumes."),
         "tic": D.meta("US Treasury", "TIC: Major Foreign Holders of Treasury Securities (Table 5)", "https://ticdata.treasury.gov/", freq="Monthly",
                       kind="Actual", confidence="High", note="Published about 6–7 weeks after month end; custody-based, so holdings in Belgium, Luxembourg and Cayman include other countries' investors."),
         "oecd": D.meta("OECD", "Composite leading indicators; key short-term economic indicators", "https://data-explorer.oecd.org/", freq="Monthly",
@@ -881,7 +896,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
             "rates": rates, "eer": eer, "wb": wb, "wb_labels": {k: v[0] for k, v in G.WB.items()}, "wb_units": {k: v[1] for k, v in G.WB.items()},
             "imf": imf, "imf_labels": {k: v[0] for k, v in G.IMF.items()}, "trade": trade, "companies": companies,
             "company_sources": G.CORPORATE_SOURCES, "proxied": c.proxied,
-            "banking": banking, "iip": iip, "cb_gold": cb_gold, "tic": tic, "oecd": oecd, "calendar_feed": cal_feed, "valuation": valuation, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
+            "banking": banking, "iip": iip, "gdp_q": gdp_q, "reserves": reserves, "reserves_all": reserves_all, "cb_gold": cb_gold, "tic": tic, "oecd": oecd, "calendar_feed": cal_feed, "valuation": valuation, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
             "meta": meta, "coverage": coverage, "revisions": revisions, "errors": c.errors,
             "fetched": fetched, "carried": carried, "refresh_days": REFRESH_DAYS}
 

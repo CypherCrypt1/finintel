@@ -42,7 +42,7 @@ def install_fakes(monkeypatch):
         return out
     monkeypatch.setattr(D, "dbn_series", dbn)
     from finintel import global_extra as X
-    for fn in ("collect_banking", "collect_iip", "collect_cb_gold", "collect_tic", "collect_oecd", "collect_calendar", "collect_valuation"):
+    for fn in ("collect_banking", "collect_iip", "collect_cb_gold", "collect_tic", "collect_oecd", "collect_calendar", "collect_valuation", "collect_gdp_q", "collect_reserves", "collect_iip_imf"):
         monkeypatch.setattr(X, fn, lambda c: {})
     monkeypatch.setattr(D, "dbn_labels", lambda ds, dim: {"US": "United States", "GB": "United Kingdom"})
     monkeypatch.setattr(D, "imf", lambda code, iso: pd.DataFrame([(i, y, float(RNG.normal(2, 1))) for i in iso for y in range(2010, 2031)], columns=["iso3", "year", "value"]))

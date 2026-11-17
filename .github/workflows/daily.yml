@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "7 3 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Refetch these slow-refresh sections now (comma list, or 'all')"
+        required: false
+        default: ""
   push:
     branches: [main]
     paths: ["manual_inputs/**", "finintel/**", "web/**", "reference/**"]
@@ -34,7 +39,8 @@ jobs:
       - name: Run engine
         env:
           PYTHONUNBUFFERED: "1"
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}   # optional; add it under Settings > Secrets > Actions
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          FORCE_SECTIONS: ${{ github.event.inputs.force }}   # optional; add it under Settings > Secrets > Actions
         run: |
           python -m finintel.run --site site --db data/finintel.sqlite
       - name: Save database history

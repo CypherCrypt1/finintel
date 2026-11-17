@@ -364,3 +364,159 @@ def collect_valuation(c) -> dict:
     if not out:
         raise RuntimeError("no valuation data")
     return out
+
+
+# ------------------------------------------------------------------ quarterly GDP (OECD QNA)
+def collect_gdp_q(c) -> dict:
+    areas = "+".join(OECD_AREAS + ["RUS"])
+    df = c.try_("gdpq:oecd", lambda: _oecd("OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_GROWTH_OECD,", f"Q..{areas}.S1..B1GQ......GY+G1.", "2015-Q1"))
+    if df is None or df.empty:
+        raise RuntimeError("no OECD quarterly GDP")
+    df["OBS_VALUE"] = pd.to_numeric(df["OBS_VALUE"], errors="coerce")
+    df = df.dropna(subset=["OBS_VALUE"])
+    inv3 = {v: k for k, v in ISO3.items()}
+    out = {}
+    for area, g in df.groupby("REF_AREA"):
+        k = inv3.get(area)
+        if not k:
+            continue
+        if "ADJUSTMENT" in g.columns and (g["ADJUSTMENT"] == "Y").any():
+            g = g[g["ADJUSTMENT"] == "Y"]
+        gy = g[g["TRANSFORMATION"] == "GY"].sort_values("TIME_PERIOD")
+        g1 = g[g["TRANSFORMATION"] == "G1"].sort_values("TIME_PERIOD")
+        if gy.empty:
+            continue
+        out[k] = {"latest": round(float(gy["OBS_VALUE"].iloc[-1]), 2), "period": gy["TIME_PERIOD"].iloc[-1],
+                  "qoq": round(float(g1["OBS_VALUE"].iloc[-1]), 2) if not g1.empty else None,
+                  "qoq_period": g1["TIME_PERIOD"].iloc[-1] if not g1.empty else None,
+                  "source": "OECD quarterly national accounts", "series": _series(gy["TIME_PERIOD"], gy["OBS_VALUE"], 48, 2)}
+    if not out:
+        raise RuntimeError("no OECD quarterly GDP rows")
+    return out
+
+
+# ------------------------------------------------------------------ IMF data portal (api.imf.org, SDMX 3.0) — current data
+IMF_API = "https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.STA/{flow}/+/*"
+IMF_CSV = {"User-Agent": "Mozilla/5.0 SOVEREIGN-research", "Accept": "application/vnd.sdmx.data+csv;version=2.0.0;labels=both"}
+
+
+def _imf_api(flow: str, filters: dict, timeout=150) -> pd.DataFrame:
+    params = {f"c[{k}]": v for k, v in filters.items()}
+    r = D.get(IMF_API.format(flow=flow), params, headers=IMF_CSV, timeout=timeout, retries=1)
+    df = pd.read_csv(io.StringIO(r.text), dtype=str)
+    ren = {c: c.split(":")[0].strip() for c in df.columns}
+    lab = {}
+    for c in df.columns:
+        base = ren[c]
+        if base in ("COUNTRY", "INDICATOR", "BOP_ACCOUNTING_ENTRY"):
+            sp = df[c].str.split(": ", n=1, expand=True)
+            df[c] = sp[0]
+            if sp.shape[1] > 1:
+                lab.update(dict(zip(sp[0], sp[1])))
+    df = df.rename(columns=ren)
+    df["OBS_VALUE"] = pd.to_numeric(df["OBS_VALUE"], errors="coerce")
+    df.attrs["labels"] = lab
+    return df.dropna(subset=["OBS_VALUE"])
+
+
+def _mper(p: str) -> str:
+    return p.replace("-M", "-") if re.match(r"^\d{4}-M\d{2}$", p) else p
+
+
+ISO3_ALL = {"US": "USA", "DE": "DEU", "IT": "ITA", "FR": "FRA", "RU": "RUS", "CN": "CHN", "CH": "CHE", "JP": "JPN", "IN": "IND", "NL": "NLD",
+            "TR": "TUR", "PL": "POL", "GB": "GBR", "KZ": "KAZ", "UZ": "UZB", "SA": "SAU", "CZ": "CZE", "QA": "QAT", "SG": "SGP", "TH": "THA",
+            "HU": "HUN", "IQ": "IRQ", "CA": "CAN"}
+GOLD_VOL, GOLD_USD, RES_TOT = "IRFCLDT1_IRFCL56V_FTO", "IRFCLDT1_IRFCL56_USD", "IRFCLDT1_IRFCL65_USD"
+
+
+def collect_reserves(c) -> dict:
+    """Monthly official reserves and gold from the IMF IRFCL template (current through recent months)."""
+    df = c.try_("reserves:irfcl", lambda: _imf_api("IRFCL", {"COUNTRY": ",".join(ISO3_ALL.values()), "INDICATOR": ",".join([GOLD_VOL, GOLD_USD, RES_TOT]),
+                                                              "TIME_PERIOD": "ge:2015-01"}))
+    if df is None or df.empty:
+        raise RuntimeError("IMF IRFCL unavailable")
+    df = df[df["TIME_PERIOD"].str.match(r"^\d{4}-M\d{2}$")].copy()
+    df["P"] = df["TIME_PERIOD"].map(_mper)
+    lab = df.attrs.get("labels", {})
+    tot = df[(df.COUNTRY == "USA") & (df.INDICATOR == RES_TOT)]["OBS_VALUE"]
+    scale = 1e6 if (not tot.empty and tot.iloc[-1] < 1e8) else 1.0     # API may report in millions
+    inv = {v: k for k, v in ISO3_ALL.items()}
+    k10 = {v: k for k, v in ISO3.items()}
+    gold_rows, res = [], {}
+    names = {"USA": "United States", "DEU": "Germany", "ITA": "Italy", "FRA": "France", "RUS": "Russia", "CHN": "China", "CHE": "Switzerland",
+             "JPN": "Japan", "IND": "India", "NLD": "Netherlands", "TUR": "Türkiye", "POL": "Poland", "GBR": "United Kingdom", "KAZ": "Kazakhstan",
+             "UZB": "Uzbekistan", "SAU": "Saudi Arabia", "CZE": "Czech Republic", "QAT": "Qatar", "SGP": "Singapore", "THA": "Thailand",
+             "HUN": "Hungary", "IRQ": "Iraq", "CAN": "Canada"}
+    for iso3, g in df.groupby("COUNTRY"):
+        vol = g[g.INDICATOR == GOLD_VOL].drop_duplicates("P", keep="last").sort_values("P")
+        if not vol.empty:
+            t = [(p, v * 1e6 / TROY_OZ_PER_TONNE) for p, v in zip(vol.P, vol.OBS_VALUE)]
+            back = lambda n: t[-1 - n][1] if len(t) > n else None  # noqa: E731
+            gold_rows.append({"iso2": inv.get(iso3, iso3), "name": names.get(iso3, iso3), "tonnes": round(t[-1][1], 1), "period": t[-1][0],
+                              "chg_1m": round(t[-1][1] - back(1), 1) if back(1) is not None else None,
+                              "chg_12m": round(t[-1][1] - back(12), 1) if back(12) is not None else None,
+                              "series": {"dates": [p for p, _ in t[-120:]], "values": [round(v, 1) for _, v in t[-120:]]}})
+        if iso3 in k10:
+            tt = g[g.INDICATOR == RES_TOT].drop_duplicates("P", keep="last").set_index("P")["OBS_VALUE"].sort_index() * scale
+            gv = g[g.INDICATOR == GOLD_USD].drop_duplicates("P", keep="last").set_index("P")["OBS_VALUE"].sort_index() * scale
+            if not tt.empty:
+                fx = (tt - gv.reindex(tt.index)).dropna()
+                rec = {"total": {"value": float(tt.iloc[-1]), "period": tt.index[-1]}, "source": "IMF (IRFCL, data portal)",
+                       "series": {"dates": list(tt.index[-120:]), "values": [round(v / 1e9, 1) for v in tt.values[-120:]]}}
+                if not gv.empty:
+                    rec["gold"] = {"value": float(gv.iloc[-1]), "period": gv.index[-1]}
+                if not fx.empty:
+                    rec["fx"] = {"value": float(fx.iloc[-1]), "period": fx.index[-1],
+                                 "chg_12m": float(fx.iloc[-1] - fx.iloc[-13]) if len(fx) > 12 else None}
+                res[k10[iso3]] = rec
+    gold_rows.sort(key=lambda r: -r["tonnes"])
+    return {"reserves": res, "cb_gold": {"holders": gold_rows, "latest_period": max((r["period"] for r in gold_rows), default=None),
+                                         "source": "IMF data portal (IRFCL)"}, "labels": {k: lab.get(k) for k in (GOLD_VOL, GOLD_USD, RES_TOT)}}
+
+
+IIP_LABELS = {"Direct investment": ("IAD_BP6_USD", "ILD_BP6_USD", "Direct investment"), "Portfolio investment": ("IAP_BP6_USD", "ILP_BP6_USD", "Portfolio investment"),
+              "Other investment": ("IAO_BP6_USD", "ILO_BP6_USD", "Other investment"), "Reserve assets": ("IAR_BP6_USD", None, "Reserve assets")}
+
+
+def collect_iip_imf(c) -> dict:
+    """Quarterly IIP from the IMF data portal; returns the same shape as collect_iip (US$ bn series)."""
+    probe = c.try_("iip:imf-codes", lambda: _imf_api("IIP", {"COUNTRY": "USA", "TIME_PERIOD": "ge:2025-01"}))
+    if probe is None or probe.empty:
+        raise RuntimeError("IMF IIP unavailable")
+    lab = probe.attrs.get("labels", {})
+    want = {"IIP": "total"}
+    for code, l in lab.items():
+        if l in IIP_LABELS:
+            want[code] = l
+    df = c.try_("iip:imf", lambda: _imf_api("IIP", {"COUNTRY": ",".join(ISO3.values()), "INDICATOR": ",".join(want), "TIME_PERIOD": "ge:2014-01"}, timeout=200))
+    if df is None or df.empty:
+        raise RuntimeError("IMF IIP query failed")
+    tot = df[(df.COUNTRY == "USA") & (df.INDICATOR == "IIP") & (df.BOP_ACCOUNTING_ENTRY == "A_P")]["OBS_VALUE"]
+    scale = 1e6 if (not tot.empty and tot.iloc[-1] < 1e9) else 1.0
+    k10 = {v: k for k, v in ISO3.items()}
+    out = {}
+    for iso3, g in df.groupby("COUNTRY"):
+        k = k10.get(iso3)
+        if not k:
+            continue
+        rec = {}
+
+        def put(key, label, sub):
+            s = sub.drop_duplicates("TIME_PERIOD", keep="last").set_index("TIME_PERIOD")["OBS_VALUE"].sort_index() * scale
+            if not s.empty:
+                rec[key] = {"label": label, "latest": float(s.iloc[-1]), "period": s.index[-1],
+                            "series": {"dates": list(s.index[-48:]), "values": [round(v / 1e9, 1) for v in s.values[-48:]]}}
+        for entry, key, label in (("A_P", "IA_BP6_USD", "Total assets"), ("L_P", "IL_BP6_USD", "Total liabilities"), ("NETAL_P", "NET", "Net international investment position")):
+            put(key, label, g[(g.INDICATOR == "IIP") & (g.BOP_ACCOUNTING_ENTRY == entry)])
+        for code, l in want.items():
+            if code == "IIP":
+                continue
+            a_key, l_key, label = IIP_LABELS[l]
+            put(a_key, f"{label} assets" if l != "Reserve assets" else label, g[(g.INDICATOR == code) & (g.BOP_ACCOUNTING_ENTRY == "A_P")])
+            if l_key:
+                put(l_key, f"{label} liabilities", g[(g.INDICATOR == code) & (g.BOP_ACCOUNTING_ENTRY == "L_P")])
+        if rec:
+            out[k] = {"freq": "Quarterly", "items": rec, "source": "IMF data portal"}
+    if len(out) < 5:
+        raise RuntimeError(f"IMF IIP: only {len(out)} countries")
+    return out
