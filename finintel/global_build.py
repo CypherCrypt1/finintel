@@ -39,7 +39,7 @@ class Collector:
     def try_(self, sid, fn):
         src = sid.split(":")[0]
         if self.fails.get(src, 0) >= (8 if src == "wb" else 4):
-            self.errors[sid] = "skipped: source failed 4 times in a row this run"
+            self.errors[sid] = "skipped: source failed repeatedly earlier in this run"
             return None
         try:
             out = fn()
@@ -613,22 +613,88 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
 
 
 # ----------------------------------------------------------------- build
-def build(store, offline=False, extra=None, calendar=None, prev=None) -> dict:
+REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7}
+
+
+def _age_days(prev, sec):
+    d = (prev or {}).get("fetched", {}).get(sec)
+    return None if not d else (pd.Timestamp(NOW.date()) - pd.Timestamp(d)).days
+
+
+def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> dict:
     c = Collector(store, offline)
     t0 = time.time()
+    prev = {}
+    if prev_path and os.path.exists(prev_path):
+        try:
+            prev = json.load(open(prev_path))
+        except Exception:
+            prev = {}
+    fetched, carried = dict(prev.get("fetched", {})), {}
+
+    def section(name, fetch, empty, prev_val):
+        """Fetch a section if due; otherwise, or on failure, carry forward the previous good copy."""
+        age = _age_days(prev, name)
+        due = offline is False and (age is None or age >= REFRESH_DAYS.get(name, 0) or not prev_val)
+        if not due and prev_val:
+            return prev_val
+        val = fetch() if not offline else empty
+        ok = bool(val) and (not isinstance(val, tuple) or bool(val[0]))
+        if ok:
+            fetched[name] = NOW.strftime("%Y-%m-%d")
+            if isinstance(val, dict) and isinstance(prev_val, dict):  # fill keys that failed today
+                miss = [k for k in prev_val if k not in val]
+                if miss:
+                    carried[name] = {"keys": miss, "from": prev.get("fetched", {}).get(name)}
+                    val = {**{k: prev_val[k] for k in miss}, **val}
+            return val
+        if prev_val:
+            carried[name] = {"keys": "all", "from": prev.get("fetched", {}).get(name)}
+            return prev_val
+        return val
+
     c.stage("start markets")
     px = collect_markets(c)
     c.stage("start bis")
     rates, eer = collect_bis(c) if not offline else ({}, {})
+    if not rates and prev.get("rates"):
+        rates, carried["rates"] = prev["rates"], {"keys": "all", "from": prev.get("fetched", {}).get("rates")}
+    elif rates:
+        fetched["rates"] = NOW.strftime("%Y-%m-%d")
+    if not eer and prev.get("eer"):
+        eer, carried["eer"] = prev["eer"], {"keys": "all", "from": prev.get("fetched", {}).get("eer")}
+    elif eer:
+        fetched["eer"] = NOW.strftime("%Y-%m-%d")
     c.stage("start worldbank")
-    wb, wb_pub = collect_wb(c) if not offline else ({}, {})
+    wb_pair = section("wb", lambda: collect_wb(c), ({}, {}), (prev.get("wb"), prev.get("meta", {}).get("worldbank", {}).get("published")) if prev.get("wb") else None)
+    if isinstance(wb_pair, tuple):
+        wb, wb_pub = wb_pair
+        wb_pub = wb_pub if isinstance(wb_pub, dict) else {"_": wb_pub}
+    else:
+        wb, wb_pub = wb_pair or {}, {}
+    if isinstance(wb, dict) and prev.get("wb") and "wb" not in carried:
+        miss = [k for k in prev["wb"] if k not in wb]
+        if miss:  # some indicators failed today: keep yesterday's copy of those
+            carried["wb"] = {"keys": miss, "from": prev.get("fetched", {}).get("wb")}
+            wb = {**{k: prev["wb"][k] for k in miss}, **wb}
     c.stage("start imf")
-    imf_df = collect_imf(c) if not offline else None
-    imf = imf_block(imf_df)
+    imf = section("imf", lambda: imf_block(collect_imf(c)), {}, prev.get("imf"))
+    imf_df = None
+    if imf:
+        rows = [(i, y, v, code) for code, d in imf.items() for i, x in d.items() for y, v in zip(x["series"]["years"], x["series"]["values"])]
+        imf_df = pd.DataFrame(rows, columns=["iso3", "year", "value", "code"]) if rows else None
     c.stage("start comtrade")
-    trade = collect_trade(c)
+    trade = section("trade", lambda: collect_trade(c), {}, prev.get("trade"))
     c.stage("start sec")
-    companies = collect_companies(c)
+    companies = section("companies", lambda: collect_companies(c), [], prev.get("companies"))
+    local = os.path.join(os.path.dirname(prev_path or "."), "companies.json")
+    if not companies and os.path.exists(local):
+        try:
+            loc = json.load(open(local))
+            companies = loc.get("companies", [])
+            carried["companies"] = {"keys": "all", "from": loc.get("fetched"), "via": "local refresh (python -m finintel.companies)"}
+        except Exception:
+            pass
     cftc = {}
     for ccy, code in G.CFTC_FX.items():
         df = c.try_(f"cftc:{ccy}", lambda: D.cftc_fx(code)) if not offline else None
@@ -636,6 +702,10 @@ def build(store, offline=False, extra=None, calendar=None, prev=None) -> dict:
             cftc[ccy] = {"date": df.index[-1].strftime("%Y-%m-%d"), "lev_net": int(df.lev.iloc[-1]), "am_net": int(df.am.iloc[-1]),
                          "lev_4w": int(df.lev.iloc[-1] - df.lev.iloc[-5]) if len(df) > 4 else None,
                          "series": D.ser(df.lev, 160, 0)}
+    if not cftc and prev.get("cftc_fx"):
+        cftc, carried["cftc_fx"] = prev["cftc_fx"], {"keys": "all", "from": prev.get("fetched", {}).get("cftc_fx")}
+    elif cftc:
+        fetched["cftc_fx"] = NOW.strftime("%Y-%m-%d")
     fredd = {}
     if not offline:
         for k, sid in list(G.FRED_YIELDS.items()) + [(k, v[1]) for k, v in G.FRED_CREDIT.items()]:
@@ -680,7 +750,7 @@ def build(store, offline=False, extra=None, calendar=None, prev=None) -> dict:
     meta = {
         "yahoo": D.meta("Yahoo Finance", "Exchange and futures prices (delayed)", "https://finance.yahoo.com/", freq="Daily", kind="Actual", confidence="Medium",
                         note="Free delayed data; futures are front-month continuous contracts. Index levels in local currency."),
-        "worldbank": D.meta("World Bank", "World Development Indicators", "https://data.worldbank.org/", published=max([v for v in wb_pub.values() if v] or [None]) if wb_pub else None,
+        "worldbank": D.meta("World Bank", "World Development Indicators", "https://data.worldbank.org/", published=max([v for v in wb_pub.values() if isinstance(v, str)] or [None]) if wb_pub else None,
                             freq="Annual", kind="Actual", confidence="High", note="Annual; latest year is often 1–2 years old."),
         "imf": D.meta("IMF", "World Economic Outlook (DataMapper)", "https://www.imf.org/external/datamapper/", freq="Annual (semi-annual editions)",
                       kind="Actual, estimate and projection", confidence="High", note="Years from the current year onward are IMF projections and are labelled as such."),
@@ -698,7 +768,8 @@ def build(store, offline=False, extra=None, calendar=None, prev=None) -> dict:
             "rates": rates, "eer": eer, "wb": wb, "wb_labels": {k: v[0] for k, v in G.WB.items()}, "wb_units": {k: v[1] for k, v in G.WB.items()},
             "imf": imf, "imf_labels": {k: v[0] for k, v in G.IMF.items()}, "trade": trade, "companies": companies,
             "company_sources": G.CORPORATE_SOURCES, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
-            "meta": meta, "coverage": coverage, "revisions": revisions, "errors": c.errors}
+            "meta": meta, "coverage": coverage, "revisions": revisions, "errors": c.errors,
+            "fetched": fetched, "carried": carried, "refresh_days": REFRESH_DAYS}
 
 
 def store_revisions(store) -> dict:

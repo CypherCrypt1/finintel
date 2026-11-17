@@ -322,7 +322,8 @@ def main(argv=None):
             shutil.copy(gpath, site / "data" / "global.json")
         else:
             from . import global_build
-            g = global_build.build(store, offline=args.offline, extra={"DFII10": loader.cache.get("fred:DFII10")}, calendar=calendar)
+            g = global_build.build(store, offline=args.offline, extra={"DFII10": loader.cache.get("fred:DFII10")}, calendar=calendar,
+                                   prev_path=str(gpath))
             txt = json.dumps(g, default=str, separators=(",", ":")).replace("NaN", "null")
             (site / "data" / "global.json").write_text(txt)
             if not args.offline:
