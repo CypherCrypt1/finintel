@@ -447,10 +447,12 @@ def collect_reserves(c) -> dict:
              "JPN": "Japan", "IND": "India", "NLD": "Netherlands", "TUR": "Türkiye", "POL": "Poland", "GBR": "United Kingdom", "KAZ": "Kazakhstan",
              "UZB": "Uzbekistan", "SAU": "Saudi Arabia", "CZE": "Czech Republic", "QAT": "Qatar", "SGP": "Singapore", "THA": "Thailand",
              "HUN": "Hungary", "IRQ": "Iraq", "CAN": "Canada"}
+    usv = df[(df.COUNTRY == "USA") & (df.INDICATOR == GOLD_VOL)]["OBS_VALUE"]
+    oz_mult = 1.0 if (not usv.empty and usv.iloc[-1] > 1e5) else 1e6   # portal reports troy ounces; IFS reported millions
     for iso3, g in df.groupby("COUNTRY"):
         vol = g[g.INDICATOR == GOLD_VOL].drop_duplicates("P", keep="last").sort_values("P")
         if not vol.empty:
-            t = [(p, v * 1e6 / TROY_OZ_PER_TONNE) for p, v in zip(vol.P, vol.OBS_VALUE)]
+            t = [(p, v * oz_mult / TROY_OZ_PER_TONNE) for p, v in zip(vol.P, vol.OBS_VALUE)]
             back = lambda n: t[-1 - n][1] if len(t) > n else None  # noqa: E731
             gold_rows.append({"iso2": inv.get(iso3, iso3), "name": names.get(iso3, iso3), "tonnes": round(t[-1][1], 1), "period": t[-1][0],
                               "chg_1m": round(t[-1][1] - back(1), 1) if back(1) is not None else None,
@@ -515,6 +517,13 @@ def collect_iip_imf(c) -> dict:
             put(a_key, f"{label} assets" if l != "Reserve assets" else label, g[(g.INDICATOR == code) & (g.BOP_ACCOUNTING_ENTRY == "A_P")])
             if l_key:
                 put(l_key, f"{label} liabilities", g[(g.INDICATOR == code) & (g.BOP_ACCOUNTING_ENTRY == "L_P")])
+        a, l = rec.get("IA_BP6_USD"), rec.get("IL_BP6_USD")
+        if a and l and "NET" not in rec:
+            la = dict(zip(a["series"]["dates"], a["series"]["values"]))
+            pairs = [(p, round(la[p] - v, 1)) for p, v in zip(l["series"]["dates"], l["series"]["values"]) if p in la]
+            if pairs:
+                rec["NET"] = {"label": "Net international investment position", "latest": pairs[-1][1] * 1e9, "period": pairs[-1][0],
+                              "series": {"dates": [p for p, _ in pairs], "values": [v for _, v in pairs]}}
         if rec:
             out[k] = {"freq": "Quarterly", "items": rec, "source": "IMF data portal"}
     if len(out) < 5:

@@ -115,7 +115,10 @@ const qgdp = ck => { const x = GD()?.gdp_q?.[ck]; return x ? { value: x.latest, 
 const imfCur = (code, iso) => { const d = GD()?.imf?.[code]?.[iso]; if (!d) return null; const i = d.series.years.indexOf(NOWY); return i < 0 ? null : { value: d.series.values[i], period: String(NOWY), kind: `IMF estimate for ${NOWY} (year in progress)`, source: "IMF WEO" }; };
 const imfAct = (code, iso) => { const v = imfL(code, iso); return v ? { value: v.value, period: String(v.year), kind: v.kind, source: "IMF WEO" } : null; };
 const wbAct = (code, iso, src = "World Bank") => { const v = wbL(code, iso); return v ? { value: v.value, period: String(v.year), kind: "Actual (annual)", source: src } : null; };
-const newest = (...c) => c.filter(x => x && x.value != null).sort((a, b) => perKey(b.period).localeCompare(perKey(a.period)) || (a.kind.startsWith("IMF estimate") ? 1 : -1))[0] || null;
+// actual readings win if they are recent (within ~15 months); the IMF's estimate for the year in progress is used only when no recent actual exists
+const ageM = p => { const [y, m] = perKey(p).split("-").map(Number); const n = new Date(); return (n.getUTCFullYear() - y) * 12 + (n.getUTCMonth() + 1 - m); };
+const newest = (...c) => { const v = c.filter(x => x && x.value != null), est = v.filter(x => x.kind.startsWith("IMF estimate")), act = v.filter(x => !x.kind.startsWith("IMF estimate")).sort((a, b) => perKey(b.period).localeCompare(perKey(a.period)));
+  if (act[0] && ageM(act[0].period) <= 15) return act[0]; return est[0] || act[0] || null; };
 const ir = (label, x, unit, money) => indRow(label, x?.value, unit, x?.period, x?.kind || "", x?.source || "", money);
 function countryPage(ck) {
   return G_(pg => {
