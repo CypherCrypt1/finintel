@@ -595,8 +595,7 @@ def collect_national(c) -> dict:
         if pp and g in pp:
             put(k, "PP", _rec("Producer prices (industry, domestic)", "Growth rate", pp[g], "Eurostat", "Growth rate, over 1 year"))
     for m, uri, lab, unit, tr in (("CP", "/economy/inflationandpriceindices/timeseries/d7g7/mm23", "Consumer prices (CPI)", "Growth rate", "Growth rate, over 1 year"),
-                                  ("UNEMP", "/employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsx/lms", "Unemployment (3-month average)", "Percentage of labour force", ""),
-                                  ("PP", "/economy/inflationandpriceindices/timeseries/gb7s/mm22", "Producer output prices", "Growth rate", "Growth rate, over 1 year")):
+                                  ("UNEMP", "/employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsx/lms", "Unemployment (3-month average)", "Percentage of labour force", "")):
         s = c.try_(f"national:ons:{m}", lambda: _ons(uri))
         if s is not None:
             put("gb", m, _rec(lab, unit, s, "UK Office for National Statistics", tr))

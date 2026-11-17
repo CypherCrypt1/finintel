@@ -796,6 +796,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     tic = section("tic", lambda: c.try_("tic:all", lambda: X.collect_tic(c)) or {}, {}, prev.get("tic"))
     oecd = section("oecd", lambda: c.try_("oecd:all", lambda: X.collect_oecd(c)) or {}, {}, prev.get("oecd"), complete=lambda v: len(v.get("countries", {})) >= 8)
     national = section("national", lambda: c.try_("national:all", lambda: X.collect_national(c)) or {}, {}, prev.get("national"))
+    if national.get("gb", {}).get("PP"):
+        national = {**national, "gb": {m: r for m, r in national["gb"].items() if m != "PP"}}
     if oecd and national:  # newer national/regional releases replace older OECD copies of the same measure
         oecd = json.loads(json.dumps(oecd))
         for k, ms in national.items():
@@ -806,6 +808,9 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
                 if not cur or str(rec["period"]) > str(cur["period"]):
                     oecd["countries"][k][m] = rec
                     oecd["labels"].setdefault(m, rec["label"])
+    if oecd and oecd.get("countries", {}).get("gb", {}).get("PP", {}).get("source", "").startswith("UK Office"):
+        oecd = json.loads(json.dumps(oecd))
+        del oecd["countries"]["gb"]["PP"]   # wrong ONS series used briefly; never show it
     cal_feed = section("calendar", lambda: c.try_("calendar:all", lambda: X.collect_calendar(c)) or {}, {}, prev.get("calendar_feed"))
     valuation = section("valuation", lambda: c.try_("valuation:all", lambda: X.collect_valuation(c)) or {}, {}, prev.get("valuation"),
                         complete=lambda v: "cape" in v and "damodaran" in v)
@@ -866,7 +871,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         s = px.get(t)
         markets["yields"].append({"key": k, "name": n, "ticker": t, "perf": D.perf(s) if s is not None else None, "series": D.ser(s, 520, 3) if s is not None else None})
 
-    cpi_latest = {k: v["CP"] for k, v in (oecd or {}).get("countries", {}).items() if v.get("CP")}
+    fresh = (NOW - pd.DateOffset(months=15)).strftime("%Y-%m")
+    cpi_latest = {k: v["CP"] for k, v in (oecd or {}).get("countries", {}).items() if v.get("CP") and str(v["CP"]["period"]) >= fresh}
     if (national or {}).get("ea", {}).get("CP"):
         cpi_latest["ea"] = national["ea"]["CP"]
     # confirmed central bank decisions newer than the BIS monthly series (reference/policy_decisions.json)
