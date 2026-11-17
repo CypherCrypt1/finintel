@@ -43,7 +43,11 @@ jobs:
           git config user.email "finintel-bot@users.noreply.github.com"
           git add data/finintel.sqlite data/last_results.json data/score_history.csv data/global.json
           git diff --cached --quiet || git commit -m "Daily data $(date -u +%F)"
-          git pull --rebase -q origin main && git push
+          # if another run saved data meanwhile, keep this (newer) run's files on top of it
+          git pull --rebase -q origin main || { git rebase --abort; git fetch -q origin main; git reset --soft origin/main;
+            git add data/finintel.sqlite data/last_results.json data/score_history.csv data/global.json;
+            git diff --cached --quiet || git commit -qm "Daily data $(date -u +%F)"; }
+          git push
       - name: Alerts
         if: github.event_name == 'schedule'
         continue-on-error: true
