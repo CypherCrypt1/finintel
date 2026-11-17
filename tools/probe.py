@@ -1,27 +1,15 @@
-"""Diagnostic: print the structure of DBnomics IMF CDIS / CPIS datasets (run via the probe workflow)."""
+"""Diagnostic: list IMF CDIS/CPIS indicator codes and test the position collector (run via the probe workflow)."""
 import json
-import requests
+from finintel import global_data as D
+from finintel.global_build import Collector, collect_positions
 
-H = {"User-Agent": "Mozilla/5.0 SOVEREIGN probe"}
 for ds in ("CDIS", "CPIS"):
-    print(f"===== IMF/{ds} =====", flush=True)
-    try:
-        r = requests.get(f"https://api.db.nomics.world/v22/datasets/IMF/{ds}", headers=H, timeout=60)
-        j = r.json()
-        d = j.get("datasets", {}).get("docs", [{}])[0]
-        print("name:", d.get("name"), "| nb_series:", d.get("nb_series"), "| updated:", d.get("indexed_at"))
-        print("dimensions:", d.get("dimensions_codes_order"))
-        for dim, vals in (d.get("dimensions_values_labels") or {}).items():
-            items = list(vals.items()) if isinstance(vals, dict) else vals
-            print(f"  {dim}: {len(items)} values; first 40:", json.dumps(items[:40])[:2500])
-    except Exception as e:
-        print("dataset error", e)
-    try:
-        r = requests.get(f"https://api.db.nomics.world/v22/series/IMF/{ds}", headers=H, timeout=60,
-                         params={"dimensions": json.dumps({"REF_AREA": ["US"]}), "observations": 1, "limit": 5})
-        j = r.json()
-        for s in j.get("series", {}).get("docs", [])[:5]:
-            print("series:", s.get("series_code"), "|", s.get("series_name"), "| dims:", s.get("dimensions"), "| periods:", s.get("period", [])[-3:], s.get("value", [])[-3:])
-        print("num_found:", j.get("series", {}).get("num_found"))
-    except Exception as e:
-        print("series error", e)
+    lab = D.dbn_labels(ds, "INDICATOR")
+    print(f"===== {ds} indicators ({len(lab)}) =====", flush=True)
+    for k, v in lab.items():
+        print(" ", k, "|", v)
+c = Collector(None, offline=False)
+out = collect_positions(c)
+print("errors:", c.errors)
+for k, rec in out.items():
+    print(k, {s: (v["year"], v["n_partners"], round(v["total_allocated"] / 1e9), [p["iso2"] for p in v["partners"][:5]]) if v else None for s, v in rec.items()}, flush=True)

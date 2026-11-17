@@ -271,3 +271,39 @@ def cftc_fx(code: str) -> pd.Series:
     lev = _col(df, "lev_money_positions_long") - _col(df, "lev_money_positions_short")
     am = _col(df, "asset_mgr_positions_long") - _col(df, "asset_mgr_positions_short")
     return pd.DataFrame({"lev": lev, "am": am}).dropna()
+
+
+# ------------------------------------------------- IMF CDIS / CPIS via DBnomics
+DBN = "https://api.db.nomics.world/v22"
+
+
+def dbn_series(dataset: str, dims: dict, limit: int = 1000) -> list[dict]:
+    """All series of an IMF dataset on DBnomics matching `dims` (paged)."""
+    out, offset = [], 0
+    while True:
+        j = get(f"{DBN}/series/IMF/{dataset}", {"dimensions": json.dumps(dims), "observations": 1, "limit": limit, "offset": offset},
+                timeout=60, retries=1).json()
+        docs = j.get("series", {}).get("docs", [])
+        out += docs
+        found = j.get("series", {}).get("num_found", 0)
+        offset += len(docs)
+        if not docs or offset >= found or offset >= 5000:
+            return out
+
+
+def dbn_labels(dataset: str, dim: str) -> dict:
+    j = get(f"{DBN}/datasets/IMF/{dataset}", timeout=60, retries=1).json()
+    d = j.get("datasets", {}).get("docs", [{}])[0]
+    vals = (d.get("dimensions_values_labels") or {}).get(dim, {})
+    if isinstance(vals, dict):
+        return dict(vals)
+    if isinstance(vals, list):
+        return {v[0]: v[1] for v in vals if isinstance(v, (list, tuple)) and len(v) == 2}
+    return {}
+
+
+def latest_obs(doc: dict) -> tuple[int, float] | None:
+    for per, v in sorted(zip(doc.get("period", []), doc.get("value", [])), reverse=True):
+        if v not in (None, "NA") and str(per)[:4].isdigit():
+            return int(str(per)[:4]), float(v)
+    return None

@@ -612,8 +612,69 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
     return reports
 
 
+# ------------------------------------------------- investment positions
+import re as _re
+CDIS_IN, CDIS_OUT = ["IIW_BP6_USD"], ["IOW_BP6_USD"]
+CPIS_TOTAL = ["I_A_T_T_BP6_USD", "I_A_T_T_T_BP6_USD"]
+COUNTRY_ISO2 = {"us": "US", "cn": "CN", "jp": "JP", "de": "DE", "fr": "FR", "in": "IN", "gb": "GB", "ca": "CA", "ch": "CH", "ru": "RU"}
+OFFSHORE = {"NL", "LU", "IE", "KY", "VG", "BM", "BS", "JE", "GG", "IM", "CY", "MU", "SG", "HK", "PA", "BB", "1C_355"}
+
+
+def _pairs(docs, counterpart_dim, scale, labels):
+    rows, years = [], []
+    for d in docs:
+        cp = (d.get("dimensions") or {}).get(counterpart_dim)
+        if not cp or not _re.fullmatch(r"[A-Z]{2}", cp):
+            continue  # skip regional aggregates and "not allocated" rows
+        ob = D.latest_obs(d)
+        if ob and ob[1] > 0:
+            years.append(ob[0])
+            rows.append({"iso2": cp, "name": labels.get(cp, cp), "value": ob[1] * scale, "year": ob[0], "offshore": cp in OFFSHORE})
+    if not rows:
+        return None
+    yr = max(years)
+    rows = [r for r in rows if r["year"] == yr]
+    rows.sort(key=lambda r: -r["value"])
+    tot = sum(r["value"] for r in rows)
+    for r in rows:
+        r["share"] = round(r["value"] / tot * 100, 2) if tot else None
+    return {"year": yr, "total_allocated": tot, "partners": rows[:40], "n_partners": len(rows)}
+
+
+def collect_positions(c: Collector) -> dict:
+    if c.offline:
+        return {}
+    lab_cdis = c.try_("positions:labels-cdis", lambda: dbn_labels_safe("CDIS", "COUNTERPART_AREA")) or {}
+    lab_cpis = c.try_("positions:labels-cpis", lambda: dbn_labels_safe("CPIS", "COUNTERPART_AREA")) or lab_cdis
+    out = {}
+    for k, iso in COUNTRY_ISO2.items():
+        rec = {}
+        docs = c.try_(f"positions:cdis:{k}", lambda: D.dbn_series("CDIS", {"FREQ": ["A"], "REF_AREA": [iso], "INDICATOR": CDIS_IN + CDIS_OUT}))
+        if docs:
+            ins = [d for d in docs if (d.get("dimensions") or {}).get("INDICATOR") in CDIS_IN]
+            outs = [d for d in docs if (d.get("dimensions") or {}).get("INDICATOR") in CDIS_OUT]
+            rec["direct_inward"] = _pairs(ins, "COUNTERPART_AREA", 1e6, lab_cdis)    # reported in US$ millions
+            rec["direct_outward"] = _pairs(outs, "COUNTERPART_AREA", 1e6, lab_cdis)
+        docs = c.try_(f"positions:cpis-assets:{k}", lambda: D.dbn_series("CPIS", {"FREQ": ["A"], "REF_AREA": [iso], "INDICATOR": CPIS_TOTAL, "REF_SECTOR": ["T"], "COUNTERPART_SECTOR": ["T"]}))
+        if docs:
+            rec["portfolio_assets"] = _pairs(docs, "COUNTERPART_AREA", 1.0, lab_cpis)
+        docs = c.try_(f"positions:cpis-liab:{k}", lambda: D.dbn_series("CPIS", {"FREQ": ["A"], "COUNTERPART_AREA": [iso], "INDICATOR": CPIS_TOTAL, "REF_SECTOR": ["T"], "COUNTERPART_SECTOR": ["T"]}))
+        if docs:
+            rec["portfolio_liabilities"] = _pairs(docs, "REF_AREA", 1.0, lab_cpis)   # other countries' holdings of this country's securities
+        out[k] = rec
+        time.sleep(0.5)
+    return out
+
+
+def dbn_labels_safe(ds, dim):
+    lab = D.dbn_labels(ds, dim)
+    if isinstance(lab, dict) and lab:
+        return lab
+    return {}
+
+
 # ----------------------------------------------------------------- build
-REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7}
+REFRESH_DAYS = {"wb": 7, "imf": 7, "trade": 30, "companies": 7, "eer": 7, "positions": 30}
 
 
 def _age_days(prev, sec):
@@ -688,6 +749,9 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     c.stage("start comtrade")
     trade = section("trade", lambda: collect_trade(c), {}, prev.get("trade"),
                     complete=lambda v: sum(1 for x in (v.get("countries") or {}).values() if x.get("exports")) >= 9)
+    c.stage("start positions")
+    positions = section("positions", lambda: collect_positions(c), {}, prev.get("positions"),
+                        complete=lambda v: sum(1 for x in v.values() if x.get("direct_outward") or x.get("portfolio_assets")) >= 8)
     c.stage("start sec")
     companies = section("companies", lambda: collect_companies(c), [], prev.get("companies"))
     local = os.path.join(os.path.dirname(prev_path or "."), "companies.json")
@@ -762,6 +826,9 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         "comtrade": D.meta("United Nations", "UN Comtrade (public preview API)", "https://comtradeplus.un.org/", freq="Annual", kind="Actual (as reported)", confidence="High",
                            note="Reported by each country; Russia has not reported since 2021. Mirror data is not yet used."),
         "sec": D.meta("US SEC", "EDGAR XBRL company facts", "https://www.sec.gov/edgar/sec-api-documentation", freq="Annual (10-K)", kind="Actual (as filed)", confidence="High"),
+        "positions": D.meta("IMF (via DBnomics)", "Coordinated Direct Investment Survey (CDIS) and Portfolio Investment Survey (CPIS)",
+                            "https://db.nomics.world/IMF", freq="Annual", kind="Actual (reported positions)", confidence="High",
+                            note="End-of-year positions (stocks), not flows. Immediate counterparty: investment routed through financial centres appears under those centres."),
         "cftc": D.meta("CFTC", "Traders in Financial Futures", "https://publicreporting.cftc.gov/", freq="Weekly", kind="Actual", confidence="High"),
         "fred": D.meta("Federal Reserve Bank of St. Louis", "FRED (OECD long-term rates, ICE BofA spreads)", "https://fred.stlouisfed.org/", freq="Daily / monthly", kind="Actual", confidence="High",
                        note="Requires FRED_API_KEY."),
@@ -770,7 +837,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     return {"generated_at": NOW.strftime("%Y-%m-%d %H:%M UTC"), "year": YEAR, "countries": G.COUNTRIES, "markets": markets, "fx": fx, "matrix": matrix,
             "rates": rates, "eer": eer, "wb": wb, "wb_labels": {k: v[0] for k, v in G.WB.items()}, "wb_units": {k: v[1] for k, v in G.WB.items()},
             "imf": imf, "imf_labels": {k: v[0] for k, v in G.IMF.items()}, "trade": trade, "companies": companies,
-            "company_sources": G.CORPORATE_SOURCES, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
+            "company_sources": G.CORPORATE_SOURCES, "positions": positions, "fred": fredd, "cftc_fx": cftc, "reports": reports, "changed": changed,
             "meta": meta, "coverage": coverage, "revisions": revisions, "errors": c.errors,
             "fetched": fetched, "carried": carried, "refresh_days": REFRESH_DAYS}
 
