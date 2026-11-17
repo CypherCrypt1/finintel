@@ -15,13 +15,12 @@ const imfL = (code, iso) => { const v = GD()?.imf?.[code]?.[iso]?.latest; if (v)
 const imfSer = (code, iso) => { const v = GD()?.imf?.[code]?.[iso]; if (v) return v; const w = IMF_WB[code] && GD()?.wb?.[IMF_WB[code]]?.[iso]; return w ? { series: { ...w.series, kinds: w.series.years.map(() => "Actual (World Bank)") } } : null; };
 const L = (arr, empty) => listOr((arr || []).map(h => new String(h)), empty);
 const PEND = `<span class="pill warn">Pending source</span>`;
-const DEMO_BANNER = `<div class="pending" style="border-color:#c98500;margin-bottom:12px"><b style="color:#e0c27e">DEMONSTRATION DATA — NOT REAL.</b> Every value in the marked panels is synthetic and exists only to show how the component works. Real bilateral investment positions need IMF CDIS/CPIS and OECD FDI integration (Phase 2).</div>`;
 function needGlobal(pg) { return header(pg) + `<div class="pending"><b>Global data file not built yet.</b> The daily run writes data/global.json; it appears after the next successful GitHub Actions run.</div>`; }
 const G_ = fn => pg => GD() ? fn(pg) : needGlobal(pg);
 
 /* ---------------- metadata (Module 12) ---------------- */
-const SRCPFX = { yahoo: "yahoo", worldbank: "wb", imf: "imf", bis: "bis", comtrade: "comtrade", sec: "sec", cftc: "cftc", fred: "fred" };
-const SRCSEC = { worldbank: "wb", imf: "imf", bis: "rates", comtrade: "trade", sec: "companies", cftc: "cftc_fx" };
+const SRCPFX = { yahoo: "yahoo", worldbank: "wb", imf: "imf", bis: "bis", comtrade: "comtrade", sec: "sec", cftc: "cftc", fred: "fred", positions: "positions" };
+const SRCSEC = { positions: "positions", worldbank: "wb", imf: "imf", bis: "rates", comtrade: "trade", sec: "companies", cftc: "cftc_fx" };
 function metaStrip(keys, extra = {}) {
   const g = GD(); if (!g) return "";
   const rows = keys.map(k => { const m = g.meta[k] || {}; const pfx = SRCPFX[k]; const errs = Object.keys(g.errors || {}).filter(e => e.startsWith(pfx + ":")).length;
@@ -294,28 +293,51 @@ PAGES["trade/tariffs"] = G_(pg => header(pg, "Applied tariff rates (World Bank, 
 PAGES["flows/overview"] = G_(pg => header(pg, "Cross-border investment flows from the balance of payments (World Bank, annual, US$). Flows are what moved in a year; positions are stocks held.") + metaStrip(["worldbank"]) +
   panel("Investment flows, latest year", table([{ t: "Country" }, { t: "FDI net inflows", n: 1 }, { t: "FDI net outflows", n: 1 }, { t: "Portfolio equity net inflows", n: 1 }, { t: "Year" }], CTRY().map(c => [esc(c.name), big(wbL("BX.KLT.DINV.CD.WD", c.iso3)?.value), big(wbL("BM.KLT.DINV.CD.WD", c.iso3)?.value), big(wbL("BX.PEF.TOTL.CD.WD", c.iso3)?.value), wbL("BX.KLT.DINV.CD.WD", c.iso3)?.year ?? ""])), "", "flush") +
   `<div class="g g2" style="margin-top:12px">${CTRY().slice(0, 4).map(c => { const d = GD().wb["BX.KLT.DINV.CD.WD"]?.[c.iso3]; return panel(`${esc(c.name)}: FDI net inflows, US$ bn`, d ? barChart(d.series.years.map(String), d.series.values.map(v => v / 1e9), { diverging: true, height: 150, fmt: v => fmt(v, 0) }) : PEND); }).join("")}</div>`);
-// demonstration dataset (synthetic, clearly labelled) for the map component
-const DEMO_INV = (() => { const keys = ["us", "cn", "jp", "de", "fr", "in", "gb", "ca", "ch", "ru"]; let seed = 7; const r = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-  return keys.map(a => keys.map(b => a === b ? null : Math.round(r() * 100))); })();
-function invMap(focus, mode) {
+// ---- bilateral investment positions (IMF CDIS / CPIS) — end-of-year stocks, US$
+const POS = () => GD().positions || {};
+const RNAME = (() => { let dn = null; try { dn = new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) {} return (iso, nm) => (nm && nm !== iso ? nm : (dn ? (() => { try { return dn.of(iso); } catch (e) { return iso; } })() : iso)); })();
+const PKIND = { direct_outward: ["Direct investment abroad", "CDIS outward position"], direct_inward: ["Direct investment received", "CDIS inward position"], portfolio_assets: ["Portfolio holdings abroad", "CPIS assets: equity + debt securities held"], portfolio_liabilities: ["Portfolio holdings by foreigners", "CPIS, as reported by holder countries"] };
+const posVal = (inv, dest, kind) => { // kind "direct" | "portfolio"; value invested by `inv` in `dest`
+  const P = POS(), I = P[inv], D2 = P[dest];
+  const pick = (blk, iso) => blk?.partners?.find(r => r.iso2 === iso)?.value ?? null;
+  if (kind === "direct") return pick(I?.direct_outward, dest.toUpperCase()) ?? pick(D2?.direct_inward, inv.toUpperCase());
+  return pick(I?.portfolio_assets, dest.toUpperCase()) ?? pick(D2?.portfolio_liabilities, inv.toUpperCase()); };
+function invMap(focus, mode, kind) {
   const keys = CTRY().map(c => c.key), id = uid(), fi = keys.indexOf(focus);
+  const vals = keys.map(k => k === focus ? null : (mode === "investor" ? posVal(focus, k, kind) : posVal(k, focus, kind)));
+  const mx = Math.max(1, ...vals.filter(v => v != null));
   mount(() => { const el = document.getElementById(id); if (!el) return; const W = Math.max(520, el.clientWidth), H = 360, cx = W / 2, cy = H / 2, R0 = 135;
     const pos = keys.map((k, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / keys.length; return [cx + R0 * Math.cos(a), cy + R0 * Math.sin(a)]; });
-    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Investment map (demonstration data)"><text x="${W / 2}" y="${H / 2 + 6}" text-anchor="middle" style="font-size:28px;fill:rgba(201,133,0,.14);font-weight:600">DEMO DATA</text>`;
-    keys.forEach((k, j) => { if (j === fi) return; const v = mode === "investor" ? DEMO_INV[fi][j] : DEMO_INV[j][fi]; const [x1, y1] = mode === "investor" ? pos[fi] : pos[j], [x2, y2] = mode === "investor" ? pos[j] : pos[fi];
-      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#c98500" stroke-opacity=".55" stroke-width="${1 + v / 18}"/>`; });
-    keys.forEach((k, i) => { const [x, y] = pos[i]; svg += `<circle cx="${x}" cy="${y}" r="${i === fi ? 9 : 6}" fill="${i === fi ? C.gold : "#2b3038"}" stroke="#c6a052"/><text x="${x}" y="${y + (y < cy ? -14 : 22)}" text-anchor="middle" style="fill:${C.ink2}">${esc(cBy(k).name)}</text>`; });
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bilateral ${kind} investment positions">`;
+    keys.forEach((k, j) => { const v = vals[j]; if (j === fi || v == null) return; const [x1, y1] = pos[fi], [x2, y2] = pos[j];
+      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${C.gold}" stroke-opacity=".6" stroke-width="${1 + 9 * v / mx}" stroke-linecap="round"><title>${esc(mode === "investor" ? cBy(focus).name + " → " + cBy(k).name : cBy(k).name + " → " + cBy(focus).name)}: ${big(v)}</title></line>`; });
+    keys.forEach((k, i) => { const [x, y] = pos[i]; svg += `<circle cx="${x}" cy="${y}" r="${i === fi ? 9 : 6}" fill="${i === fi ? C.gold : "#2b3038"}" stroke="#c6a052" stroke-width="2"/><text x="${x}" y="${y + (y < cy ? -14 : 22)}" text-anchor="middle" style="fill:${C.ink2}">${esc(cBy(k).name)}${vals[i] != null ? " · " + big(vals[i]) : ""}</text>`; });
     el.innerHTML = svg + "</svg>"; });
   return `<div class="chart" id="${id}"></div>`;
 }
-const invPage = mode => G_(pg => { const focus = pg.param || "us", c = cBy(focus), keys = CTRY().map(x => x.key), fi = keys.indexOf(focus);
-  const rows = keys.map((k, j) => [cBy(k).name, mode === "investor" ? DEMO_INV[fi][j] : DEMO_INV[j][fi]]).filter(r => r[1] != null).sort((a, b) => b[1] - a[1]);
-  return header(pg, mode === "investor" ? `Where does ${esc(c.name)} invest? Select an investor country.` : `Who invests in ${esc(c.name)}? Select a destination country.`, { right: selectBox(pg, CTRY().map(x => [x.key, x.name]), focus, mode === "investor" ? "Investor" : "Destination") }) + DEMO_BANNER +
-    `<div class="g g-21">${panel(`World investment map (DEMO)`, invMap(focus, mode))}${panel(mode === "investor" ? "Destinations (DEMO index)" : "Investors (DEMO index)", table([{ t: "Country" }, { t: "Demo value", n: 1 }], rows.map(r => [esc(r[0]), `<span class="num" style="color:#e0c27e">${r[1]} (demo)</span>`])))}</div>` +
-    panel("When real data is connected", `<ul class="clean"><li><b>Positions</b> (stocks): IMF Coordinated Direct Investment Survey (CDIS) and Portfolio Investment Survey (CPIS), annual, bilateral.</li><li><b>Flows</b>: OECD FDI statistics by partner; national balance-of-payments releases.</li><li><b>Announced vs completed</b>: greenfield project announcements (e.g. fDi Markets, licensed) are kept separate from completed transactions and official statistics.</li></ul>`); });
-PAGES["flows/map"] = invPage("investor"); PAGES["flows/investor"] = invPage("investor"); PAGES["flows/destination"] = invPage("destination");
+const posTable = (blk, n = 15) => !blk ? PEND : table([{ t: "Counterpart" }, { t: "Position", n: 1 }, { t: "Share", n: 1 }],
+  blk.partners.slice(0, n).map(r => [esc(RNAME(r.iso2, r.name)) + (r.offshore ? ` <span class="tag" title="Financial or offshore centre: investment often passes through it to a final destination">hub</span>` : ""), big(r.value), fmt(r.share, 1) + "%"]));
+const posNote = `<p class="sm" style="margin:8px 0 0">End-of-year positions (stocks), not flows. Counterparts are <b>immediate</b> counterparties, so money routed through financial hubs (Netherlands, Luxembourg, Ireland, Cayman Islands, Hong Kong, Singapore and others, tagged "hub") appears under the hub rather than the final owner or destination. Share = % of the amount allocated to a named country.</p>`;
+const invPage = mode => G_(pg => { const focus = pg.param || "us", c = cBy(focus), P = POS()[focus] || {};
+  const dk = mode === "investor" ? "direct_outward" : "direct_inward", pk = mode === "investor" ? "portfolio_assets" : "portfolio_liabilities";
+  const has = P[dk] || P[pk];
+  const yr = blk => blk ? ` · ${blk.year} · ${big(blk.total_allocated)} across ${blk.n_partners} countries` : "";
+  return header(pg, mode === "investor" ? `Where has ${esc(c.name)} invested? Direct and portfolio positions held abroad, by destination.` : `Who has invested in ${esc(c.name)}? Direct and portfolio positions held by foreign investors, by investor country.`, { right: selectBox(pg, CTRY().map(x => [x.key, x.name]), focus, mode === "investor" ? "Investor" : "Destination") }) + metaStrip(["positions"]) +
+    (!has ? `<div class="pending">IMF CDIS/CPIS positions for ${esc(c.name)} are not loaded yet. They refresh monthly with the daily run.</div>` :
+    `<div class="g g2">${panel(`Direct investment, links among the 10 economies`, invMap(focus, mode, "direct"))}${panel(`Portfolio investment, links among the 10 economies`, invMap(focus, mode, "portfolio"))}</div>` +
+    `<div class="g g2" style="margin-top:12px">${panel(PKIND[dk][0] + yr(P[dk]), posTable(P[dk]), PKIND[dk][1])}${panel(PKIND[pk][0] + yr(P[pk]), posTable(P[pk]), PKIND[pk][1])}</div>` + posNote); });
+PAGES["flows/map"] = G_(pg => { const keys = CTRY().map(c => c.key), names = CTRY().map(c => c.name);
+  const m = kind => keys.map(a => keys.map(b => a === b ? null : (v => v == null ? null : v / 1e9)(posVal(a, b, kind))));
+  const yrs = Object.values(POS()).flatMap(r => Object.values(r).filter(Boolean).map(b => b.year)), y = yrs.length ? Math.max(...yrs) : null;
+  const sc = mm => Math.max(1, ...mm.flat().filter(v => v != null));
+  return header(pg, `World investment map: bilateral positions among the 10 covered economies${y ? ", end-" + y : ""}. Rows invest in columns. US$ bn.`) + metaStrip(["positions"]) +
+    (!yrs.length ? `<div class="pending">IMF CDIS/CPIS positions are not loaded yet.</div>` :
+    panel("Direct investment positions (CDIS), investor → destination, US$ bn", matrixHeat(names, names, m("direct"), { scale: sc(m("direct")), fmt: v => fmt(v, 0), left: 120, top: 110 })) +
+    panel("Portfolio investment positions (CPIS), holder → issuer, US$ bn", matrixHeat(names, names, m("portfolio"), { scale: sc(m("portfolio")), fmt: v => fmt(v, 0), left: 120, top: 110 })) + posNote +
+    `<p class="sm">Select a country: <a href="#/flows/investor/us">by investor</a> · <a href="#/flows/destination/us">by destination</a>.</p>`); });
+PAGES["flows/investor"] = invPage("investor"); PAGES["flows/destination"] = invPage("destination");
 PAGES["flows/positions"] = G_(pg => header(pg, "Flows and positions are different measures and are never mixed on SOVEREIGN pages.") +
-  `<div class="g g2">${panel("Flows (what moved during a period)", `<ul class="clean"><li>Balance-of-payments FDI and portfolio flows, annual: <b>connected</b> (World Bank).</li><li>Monthly portfolio flows (e.g. US TIC, Japan MoF weekly): pending.</li></ul>`)}${panel("Positions (what is held at a date)", `<ul class="clean"><li>International investment positions (IMF IIP): pending.</li><li>Bilateral direct and portfolio positions (IMF CDIS, CPIS): pending.</li><li>Foreign holdings of government bonds (US TIC, national debt offices): pending.</li></ul>`)}</div>` +
+  `<div class="g g2">${panel("Flows (what moved during a period)", `<ul class="clean"><li>Balance-of-payments FDI and portfolio flows, annual: <b>connected</b> (World Bank).</li><li>Monthly portfolio flows (e.g. US TIC, Japan MoF weekly): pending.</li></ul>`)}${panel("Positions (what is held at a date)", `<ul class="clean"><li>International investment positions (IMF IIP): pending.</li><li>Bilateral direct and portfolio positions (IMF CDIS, CPIS, annual): <b>connected</b>.</li><li>Foreign holdings of government bonds (US TIC, national debt offices): pending.</li></ul>`)}</div>` +
   panel("Announced vs completed", `<p class="sm" style="margin:0">Announced greenfield projects and M&A deals are intentions; completed investment shows up later in official flow data. When integrated, announced items will carry an "Announced" label and will not be added to official flows.</p>`));
 PAGES["flows/institutions"] = pg => pendingPage(pg, { lede: "Sovereign wealth funds, pension funds and other large institutions.", what: "Holdings come from fund annual reports and regulatory filings (e.g. Norway GPFG publishes all holdings; US 13F).", fields: "assets under management, allocation by country and asset class, largest holdings, changes", source: "Fund annual reports (NBIM, GIC, ADIA, CPP, GPIF), SEC 13F" });
 PAGES["flows/banking"] = pg => pendingPage(pg, { lede: "International banking assets and cross-border lending.", what: "BIS locational and consolidated banking statistics are free but not yet integrated.", fields: "cross-border claims by creditor and borrower country, foreign claims, currency breakdown", source: "BIS Locational Banking Statistics (WS_LBS_D_PUB), Consolidated Banking Statistics (WS_CBS_PUB)" });
@@ -401,7 +423,7 @@ PAGES["platform/coverage"] = G_(pg => { const g = GD(), cv = g.coverage, errs = 
       row("Currencies", cv.currencies.covered, cv.currencies.target, ""), row("Central bank policy rates", cv.policy_rates.covered, cv.policy_rates.target, "Germany and France share the ECB"),
       row("World Bank indicators", cv.worldbank.indicators, cv.worldbank.target, `${cv.worldbank.country_cells} country-indicator series`), row("IMF WEO indicators", cv.imf.indicators, cv.imf.target, "includes projections, labelled"),
       row("Trade reporters (UN Comtrade)", cv.trade.reporters, cv.trade.target, "Russia not reporting since 2021"), row("Companies (filings)", cv.companies.records, cv.companies.target_per_country * cv.companies.countries, "US only so far"),
-      row("Bilateral investment positions", 0, 100, "demo data only"), row("PMIs, confidence, retail sales", 0, 10, "licensed or not yet integrated")])) +
+      (() => { const n = Object.values(GD().positions || {}).filter(r => r.direct_outward || r.portfolio_assets).length; return row("Bilateral investment positions (IMF CDIS/CPIS)", n, 10, n ? "annual, end-year stocks" : "not loaded"); })(), row("PMIs, confidence, retail sales", 0, 10, "licensed or not yet integrated")])) +
     `<div style="height:12px"></div>` + metaStrip(Object.keys(g.meta)).replace("<details", "<details open") +
     panel(`Source errors in the latest build (${errs.length})`, errs.length ? table([{ t: "Series" }, { t: "Error" }], errs.slice(0, 120).map(([k, v]) => [`<span class="mono sm">${esc(k)}</span>`, `<span class="sm">${esc(v)}</span>`]), { max: 400 }) : "None.") +
     panel("Rules", `<ul class="clean"><li>Missing data is shown as "—" or "pending", never as zero or an estimate.</li><li>Quarterly and annual data always shows its period; it is never labelled as current daily data.</li><li>IMF values for the current and future years are labelled as projections.</li><li>Demonstration data appears only on the investment map pages and is marked on every value.</li><li>Every stored value keeps the date the platform first saw it, so revisions are recorded.</li></ul>`); });

@@ -30,6 +30,18 @@ def install_fakes(monkeypatch):
         rows = [(i, y, float(RNG.normal(2, 1)) * (1e11 if "CD" in code else 1)) for i in iso for y in range(2005, 2025)]
         return pd.DataFrame(rows, columns=["iso3", "year", "value"]), {"published": "2026-10-28"}
     monkeypatch.setattr(D, "worldbank", wb)
+    def dbn(ds, dims, limit=1000):
+        cps = ["US", "GB", "NL", "LU", "JP", "DE", "CN", "CH", "FR", "CA", "IN", "KY", "A6"]
+        out = []
+        for ind in dims.get("INDICATOR", []):
+            for ref in dims.get("REF_AREA", ["US", "GB", "JP", "DE"]):
+                for cp in dims.get("COUNTERPART_AREA", cps):
+                    if cp != ref:
+                        out.append({"dimensions": {"INDICATOR": ind, "REF_AREA": ref, "COUNTERPART_AREA": cp},
+                                    "period": ["2022", "2023"], "value": ["NA", float(RNG.uniform(1e3, 5e5))]})
+        return out
+    monkeypatch.setattr(D, "dbn_series", dbn)
+    monkeypatch.setattr(D, "dbn_labels", lambda ds, dim: {"US": "United States", "GB": "United Kingdom"})
     monkeypatch.setattr(D, "imf", lambda code, iso: pd.DataFrame([(i, y, float(RNG.normal(2, 1))) for i in iso for y in range(2010, 2031)], columns=["iso3", "year", "value"]))
     def bis(flow, key, start):
         rows = []
