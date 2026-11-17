@@ -27,7 +27,7 @@
    "event": "Bank of Canada rate announcement",
    "region": "Canada",
    "importance": "Medium",
-   "why": "Policy rate 2.25%; Canadian dollar and commodity-currency sentiment",
+   "why": "Policy rate 2.50% after October's 25 bp hike (BIS); Canadian dollar and commodity-currency sentiment",
    "source": "Bank of Canada, 2026 schedule",
    "url": "https://www.bankofcanada.ca/2025/08/bank-canada-publishes-2026-schedule-policy-interest-rate-announcements-other-major-publications/",
    "status": "Confirmed"
@@ -58,7 +58,7 @@
    "event": "Bank of England MPC announcement",
    "region": "United Kingdom",
    "importance": "High",
-   "why": "Bank Rate decision; sterling and gilts",
+   "why": "Bank Rate 4.00% after the 5 November hike; sterling and gilts",
    "source": "Bank of England, MPC dates 2026",
    "url": "https://www.bankofengland.co.uk/news/2025/september/monetary-policy-committee-dates-for-2026",
    "status": "Confirmed"

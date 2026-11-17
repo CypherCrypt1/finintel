@@ -1,17 +1,77 @@
-{"as_of": "2026-11-13",
+{
+ "as_of": "2026-11-17",
  "banks": [
-  {"bank": "Federal Reserve", "rate": "3.75–4.00%", "last_move": "Hike, September 2026; held 28 Oct with two votes for a hike",
-   "next": "8–9 Dec 2026", "market": "December hike fully priced; about 13% odds of 50 bp",
-   "sources": [["FXStreet, 30 Oct 2026", "https://www.fxstreet.com/analysis/gold-weekly-forecast-bears-dominate-even-as-us-yields-push-lower-ahead-of-midterm-election-202610301445"],
-               ["BabyPips, 13 Nov 2026", "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"]]},
-  {"bank": "Bank of England", "rate": "Not collected", "last_move": "Expected to raise rates in the week of 2 Nov (outcome not yet recorded)",
-   "next": "Not collected", "market": "Hiking bias",
-   "sources": [["Trading Economics, 2 Nov 2026", "https://tradingeconomics.com/united-states/currency/news/597320"]]},
-  {"bank": "European Central Bank", "rate": "Not collected", "last_move": "Widely expected to hold at its late-October meeting",
-   "next": "Not collected", "market": "On hold",
-   "sources": [["Trading Economics, 29 Oct 2026", "https://tradingeconomics.com/united-states/currency/news/595937"]]},
-  {"bank": "Bank of Japan", "rate": "Not collected", "last_move": "Widely expected to hold in late October; weighing a December hike",
-   "next": "December 2026", "market": "Possible December hike",
-   "sources": [["Trading Economics, 29 Oct 2026", "https://tradingeconomics.com/united-states/currency/news/595937"],
-               ["investingLive, Nov 2026", "https://investinglive.com/commodities/gold-dips-after-fed-s-waller-drops-the-50-bps-hike-bomb-and-us-cpi-comes-above-expectations/"]]}
- ]}
+  {
+   "bank": "Federal Reserve",
+   "rate": "3.75–4.00%",
+   "last_move": "Hike, September 2026; held 28 Oct with two votes for a hike",
+   "next": "8–9 Dec 2026",
+   "market": "December hike fully priced; about 13% odds of 50 bp",
+   "sources": [
+    [
+     "FXStreet, 30 Oct 2026",
+     "https://www.fxstreet.com/analysis/gold-weekly-forecast-bears-dominate-even-as-us-yields-push-lower-ahead-of-midterm-election-202610301445"
+    ],
+    [
+     "BabyPips, 13 Nov 2026",
+     "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"
+    ]
+   ]
+  },
+  {
+   "bank": "Bank of England",
+   "rate": "4.00%",
+   "last_move": "Hike +25 bp on 5 Nov 2026 (8–1 vote; one member wanted +50 bp)",
+   "next": "17 Dec 2026",
+   "market": "Hiking bias",
+   "sources": [
+    [
+     "Bank of England, Monetary Policy Report Nov 2026",
+     "https://www.bankofengland.co.uk/monetary-policy-report/2026/november-2026"
+    ],
+    [
+     "Trading Economics, 2 Nov 2026",
+     "https://tradingeconomics.com/united-states/currency/news/597320"
+    ]
+   ]
+  },
+  {
+   "bank": "European Central Bank",
+   "rate": "2.50% (BIS policy-rate series)",
+   "last_move": "Hike +25 bp, September 2026; held in October",
+   "next": "16–17 Dec 2026 (with staff projections)",
+   "market": "On hold",
+   "sources": [
+    [
+     "BIS policy rates (WS_CBPOL), Oct 2026",
+     "https://data.bis.org/topics/CBPOL"
+    ],
+    [
+     "Trading Economics, 29 Oct 2026",
+     "https://tradingeconomics.com/united-states/currency/news/595937"
+    ]
+   ]
+  },
+  {
+   "bank": "Bank of Japan",
+   "rate": "1.25% (BIS policy-rate series)",
+   "last_move": "Hike +25 bp, September 2026; held in October",
+   "next": "17–18 Dec 2026",
+   "market": "Possible December hike",
+   "sources": [
+    [
+     "BIS policy rates (WS_CBPOL), Oct 2026",
+     "https://data.bis.org/topics/CBPOL"
+    ],
+    [
+     "Trading Economics, 29 Oct 2026",
+     "https://tradingeconomics.com/united-states/currency/news/595937"
+    ],
+    [
+     "investingLive, Nov 2026",
+     "https://investinglive.com/commodities/gold-dips-after-fed-s-waller-drops-the-50-bps-hike-bomb-and-us-cpi-comes-above-expectations/"
+    ]
+   ]
+  }
+ ]
+}
