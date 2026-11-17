@@ -557,6 +557,7 @@ def rel_reports(px, wb, imf, rates, trade, extra, oecd=None, iip=None, gdp_q=Non
         (con if de_ip["latest"] < 0 else ev).append(f"German industrial production {de_ip['latest']:+.1f}% y/y in {de_ip['period']} (OECD).")
     if de_bc:
         (con if de_bc["latest"] < 100 else ev).append(f"German business confidence {de_bc['latest']:.1f} in {de_bc['period']} (OECD, 100 = average).")
+    de_ind = None
     if not de_ip:
         de_ind = wbv("NV.IND.TOTL.KD.ZG", "DEU")
         if de_ind:
@@ -565,7 +566,8 @@ def rel_reports(px, wb, imf, rates, trade, extra, oecd=None, iip=None, gdp_q=Non
     if dax is not None:
         pdx = D.perf(dax)
         ev.append(f"DAX {pdx['last']:,.0f}; 1-year change {fmt(pdx['y1'], 1, '%')} (Yahoo Finance, {pdx['date']}).")
-        if de_ind and de_ind["value"] < 0 and (pdx["y1"] or 0) > 0:
+        weak = (de_ip and de_ip["latest"] < 0) or (de_ind and de_ind["value"] < 0)
+        if weak and (pdx["y1"] or 0) > 0:
             con.append("The DAX has risen while German industry contracted: index earnings are global, not domestic.")
     reports.append(dict(key="europe-germany", title="How does European industrial weakness affect German equities?",
         development="Falling industrial output in Germany and the euro area.",
