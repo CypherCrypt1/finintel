@@ -11,3 +11,9 @@ date,asset,horizon,macro,fundamental,technical,combined,label,price
 2026-11-17,BTC,short,,48,-75.0,-34,Moderately bearish,64604.7
 2026-11-17,BTC,medium,,48,-42,6,Neutral,64604.7
 2026-11-17,BTC,long,,51,-9.0,36,Moderately bullish,64604.7
+2026-11-17,XAU,short,-74,8,-61.0,-47,Moderately bearish,3862.22
+2026-11-17,XAU,medium,-74,8,-74,-45,Moderately bearish,3862.22
+2026-11-17,XAU,long,-74,8,-88.0,-39,Moderately bearish,3862.22
+2026-11-17,BTC,short,,48,-75.0,-34,Moderately bearish,64441.52
+2026-11-17,BTC,medium,,47,-42,6,Neutral,64441.52
+2026-11-17,BTC,long,,50,-10.0,35,Moderately bullish,64441.52
