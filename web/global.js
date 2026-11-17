@@ -316,7 +316,7 @@ function invMap(focus, mode, kind) {
   return `<div class="chart" id="${id}"></div>`;
 }
 const posTable = (blk, n = 15) => !blk ? PEND : table([{ t: "Counterpart" }, { t: "Position", n: 1 }, { t: "Share", n: 1 }],
-  blk.partners.slice(0, n).map(r => [esc(RNAME(r.iso2, r.name)) + (r.offshore ? ` <span class="tag" title="Financial or offshore centre: investment often passes through it to a final destination">hub</span>` : ""), big(r.value), fmt(r.share, 1) + "%"]));
+  blk.partners.slice(0, n).map(r => [esc(RNAME(r.iso2, r.name)) + (r.offshore ? ` <span style="font-size:10px;color:#c6a052;border:1px solid rgba(198,160,82,.4);border-radius:3px;padding:0 4px;margin-left:4px" title="Financial or offshore centre: investment often passes through it to a final destination">hub</span>` : ""), big(r.value), fmt(r.share, 1) + "%"]));
 const posNote = `<p class="sm" style="margin:8px 0 0">End-of-year positions (stocks), not flows. Counterparts are <b>immediate</b> counterparties, so money routed through financial hubs (Netherlands, Luxembourg, Ireland, Cayman Islands, Hong Kong, Singapore and others, tagged "hub") appears under the hub rather than the final owner or destination. Share = % of the amount allocated to a named country.</p>`;
 const invPage = mode => G_(pg => { const focus = pg.param || "us", c = cBy(focus), P = POS()[focus] || {};
   const dk = mode === "investor" ? "direct_outward" : "direct_inward", pk = mode === "investor" ? "portfolio_assets" : "portfolio_liabilities";
@@ -334,6 +334,7 @@ PAGES["flows/map"] = G_(pg => { const keys = CTRY().map(c => c.key), names = CTR
     (!yrs.length ? `<div class="pending">IMF CDIS/CPIS positions are not loaded yet.</div>` :
     panel("Direct investment positions (CDIS), investor → destination, US$ bn", matrixHeat(names, names, m("direct"), { scale: sc(m("direct")), fmt: v => fmt(v, 0), left: 120, top: 110 })) +
     panel("Portfolio investment positions (CPIS), holder → issuer, US$ bn", matrixHeat(names, names, m("portfolio"), { scale: sc(m("portfolio")), fmt: v => fmt(v, 0), left: 120, top: 110 })) + posNote +
+    (() => { const old = CTRY().filter(c => Object.values(POS()[c.key] || {}).some(b => b && b.year < y)); return old.length ? `<p class="sm">Older data: ${old.map(c => esc(c.name) + " (" + Math.min(...Object.values(POS()[c.key]).filter(Boolean).map(b => b.year)) + ")").join(", ")}. Where a country no longer reports, its row uses the latest year it did report.</p>` : ""; })() +
     `<p class="sm">Select a country: <a href="#/flows/investor/us">by investor</a> · <a href="#/flows/destination/us">by destination</a>.</p>`); });
 PAGES["flows/investor"] = invPage("investor"); PAGES["flows/destination"] = invPage("destination");
 PAGES["flows/positions"] = G_(pg => header(pg, "Flows and positions are different measures and are never mixed on SOVEREIGN pages.") +
