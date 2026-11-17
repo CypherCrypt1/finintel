@@ -409,7 +409,12 @@ def _imf_now(d):
     return d
 
 
-def rel_reports(px, wb, imf, rates, trade, extra) -> list:
+def rel_reports(px, wb, imf, rates, trade, extra, oecd=None, iip=None, gdp_q=None, positions=None) -> list:
+    oc = (oecd or {}).get("countries", {})
+
+    def om(k, m):
+        r = oc.get(k, {}).get(m)
+        return r if r and str(r["period"]) >= (NOW - pd.DateOffset(months=15)).strftime("%Y-%m") else None
     imf = {code: {iso: _imf_now(v) for iso, v in d.items()} for code, d in (imf or {}).items()}
     def p(t):
         s = px.get(t)
@@ -495,7 +500,13 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
         if cc is not None:
             (ev if cc > 0 else con).append(f"Correlation of China's annual industry value-added growth with copper's annual average price change: {cc:+.2f} over {n} years (World Bank, Yahoo Finance).")
         lv = wbv("NV.IND.TOTL.KD.ZG", "CHN")
-        if lv:
+        q = (gdp_q or {}).get("cn")
+        if q:
+            ev.append(f"China real GDP growth {q['latest']:+.1f}% y/y in {q['period']} (OECD).")
+        cli = om("cn", "LI")
+        if cli:
+            (ev if cli["latest"] >= 100 else con).append(f"China's OECD composite leading indicator {cli['latest']:.1f} in {cli['period']} (100 = long-term trend).")
+        elif lv:
             ev.append(f"China industry value added grew {lv['value']:.1f}% in {lv['year']} (World Bank).")
     if cu is not None:
         ev.append(f"Copper 1-year change {fmt(p('HG=F')['y1'], 1, '%')} ({p('HG=F')['date']}).")
@@ -518,10 +529,15 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
     jpy = usd_value(px).get("JPY")
     if jpy is not None:
         ev.append(f"Yen against the dollar: 3-month {fmt(D.perf(jpy)['m3'], 1, '%')}, 1-year {fmt(D.perf(jpy)['y1'], 1, '%')} (Yahoo Finance).")
-    fo = wbv("BM.KLT.DINV.CD.WD", "JPN")
-    if fo:
-        ev.append(f"Japan FDI net outflows US${fo['value'] / 1e9:,.0f}bn in {fo['year']} (World Bank).")
-    con.append("Bilateral portfolio holdings (IMF CPIS) and Japanese investors' monthly flows (MoF) are not yet connected.")
+    ji = (iip or {}).get("jp", {}).get("items", {})
+    if ji.get("IAP_BP6_USD") and ji.get("NET"):
+        ev.append(f"Japan holds US${ji['IAP_BP6_USD']['latest'] / 1e12:,.2f}tn of foreign portfolio securities and has a net foreign asset position of US${ji['NET']['latest'] / 1e12:,.2f}tn ({ji['NET']['period']}, IMF); a stronger yen and higher domestic yields give these investors a reason to bring money home.")
+    jpa = ((positions or {}).get("jp") or {}).get("portfolio_assets")
+    if jpa:
+        us = next((r for r in jpa["partners"] if r["iso2"] == "US"), None)
+        if us:
+            ev.append(f"US securities are {us['share']:.0f}% of Japan's identified portfolio holdings abroad (US${us['value'] / 1e12:,.2f}tn, end-{jpa['year']}, IMF CPIS).")
+    con.append("Japanese investors' weekly and monthly flow data (Ministry of Finance) is not yet connected.")
     reports.append(dict(key="japan-tightening", title="How does Japanese monetary tightening affect global capital flows?",
         development="The Bank of Japan raises rates or lets long-term yields rise.",
         mechanism=["Japan is the world's largest creditor nation; higher domestic yields make it more attractive for Japanese investors to keep savings at home.",
@@ -536,9 +552,15 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
 
     # 5 Europe industry -> German equities
     ev, con = [], []
-    de_ind = wbv("NV.IND.TOTL.KD.ZG", "DEU")
-    if de_ind:
-        (con if de_ind["value"] < 0 else ev).append(f"German industry value added {de_ind['value']:+.1f}% in {de_ind['year']} (World Bank).")
+    de_ip, de_bc = om("de", "PRVM"), om("de", "BCICP")
+    if de_ip:
+        (con if de_ip["latest"] < 0 else ev).append(f"German industrial production {de_ip['latest']:+.1f}% y/y in {de_ip['period']} (OECD).")
+    if de_bc:
+        (con if de_bc["latest"] < 100 else ev).append(f"German business confidence {de_bc['latest']:.1f} in {de_bc['period']} (OECD, 100 = average).")
+    if not de_ip:
+        de_ind = wbv("NV.IND.TOTL.KD.ZG", "DEU")
+        if de_ind:
+            (con if de_ind["value"] < 0 else ev).append(f"German industry value added {de_ind['value']:+.1f}% in {de_ind['year']} (World Bank).")
     dax = px.get("^GDAXI")
     if dax is not None:
         pdx = D.perf(dax)
@@ -561,7 +583,13 @@ def rel_reports(px, wb, imf, rates, trade, extra) -> list:
     if oil is not None:
         ev.append(f"WTI 1-year change {fmt(p('CL=F')['y1'], 1, '%')} ({p('CL=F')['date']}).")
     fi = wbv("TM.VAL.FUEL.ZS.UN", "IND")
-    if fi:
+    icp = om("in", "CP")
+    if icp:
+        ev.append(f"India CPI inflation {icp['latest']:.1f}% y/y in {icp['period']} (OECD).")
+    ex, im = om("in", "EX"), om("in", "IM")
+    if ex and im:
+        ev.append(f"India merchandise exports {ex['latest']:+.1f}% and imports {im['latest']:+.1f}% y/y in {im['period']} (OECD).")
+    if fi and not (trade or {}).get("countries", {}).get("in"):
         ev.append(f"Fuel was {fi['value']:.0f}% of India's merchandise imports in {fi['year']} (World Bank).")
     tb = wbv("NE.RSB.GNFS.CD", "IND")
     if tb:
@@ -898,7 +926,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
                 it["stale_since"], it["perf"] = it["perf"]["date"], None
     fx = currency_block(px, rates, imf_df, wb, eer, cftc, cpi_latest) if px else {}
     matrix = asset_matrix(px) if px else {}
-    reports = rel_reports(px, wb, imf, rates, trade, extra or {})
+    reports = rel_reports(px, wb, imf, rates, trade, extra or {}, oecd=oecd, iip=iip, gdp_q=gdp_q, positions=positions)
 
     # global what changed
     movers = sorted([(i["name"], i["perf"]["d1"]) for i in markets["indices"] if i["perf"] and i["perf"]["d1"] is not None], key=lambda x: -abs(x[1]))[:5]
