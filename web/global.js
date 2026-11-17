@@ -118,7 +118,8 @@ const wbAct = (code, iso, src = "World Bank") => { const v = wbL(code, iso); ret
 // actual readings win if they are recent (within ~15 months); the IMF's estimate for the year in progress is used only when no recent actual exists
 const ageM = p => { const [y, m] = perKey(p).split("-").map(Number); const n = new Date(); return (n.getUTCFullYear() - y) * 12 + (n.getUTCMonth() + 1 - m); };
 const newest = (...c) => { const v = c.filter(x => x && x.value != null), est = v.filter(x => x.kind.startsWith("IMF estimate")), act = v.filter(x => !x.kind.startsWith("IMF estimate")).sort((a, b) => perKey(b.period).localeCompare(perKey(a.period)));
-  if (act[0] && ageM(act[0].period) <= 15) return act[0]; return est[0] || act[0] || null; };
+  const annualOlder = act[0] && /^\d{4}$/.test(String(act[0].period)) && est[0] && +est[0].period > +act[0].period;
+  if (act[0] && ageM(act[0].period) <= 15 && !annualOlder) return act[0]; return est[0] || act[0] || null; };
 const ir = (label, x, unit, money) => indRow(label, x?.value, unit, x?.period, x?.kind || "", x?.source || "", money);
 function countryPage(ck) {
   return G_(pg => {
