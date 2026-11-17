@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financial Intelligence Terminal: snapshot 17 Nov 2026</title>
+<style>
+:root{
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --bull:#2a78d6; --bear:#e34948; --mid:#f0efec; --accent:#2a78d6;
+  --warn:#fab219; --good:#006300;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --bull:#3987e5; --bear:#e66767; --mid:#383835; --accent:#3987e5; --good:#0ca30c; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font-size:20px;margin:0 0 4px;font-weight:650;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 10px;font-weight:650}
+h3{font-size:13px;margin:0 0 6px;font-weight:650}
+.sub{color:var(--ink2);font-size:13px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--ring);color:var(--ink2);background:var(--surface)}
+.badge.snap::before{content:"\25CF ";color:var(--warn)}
+.badge.live::before{content:"\25CF ";color:var(--good)}
+.tabs{display:flex;gap:6px;margin:4px 0 16px}
+.tab{appearance:none;border:1px solid var(--ring);background:var(--surface);color:var(--ink);padding:7px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+.tab[aria-selected=true]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:16px}
+.grid4{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-bottom:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+@media (max-width:900px){.grid4{grid-template-columns:1fr 1fr}.grid2,.grid3{grid-template-columns:1fr}}
+.kicker{font-size:12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.hero{font-size:30px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:2px 0}
+.stance{font-size:19px;font-weight:650;margin:2px 0 6px}
+.num{font-variant-numeric:tabular-nums}
+.meter{position:relative;height:8px;background:var(--mid);border-radius:4px;margin:8px 0 6px}
+.meter .zero{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--axis)}
+.meter .fill{position:absolute;top:0;bottom:0;border-radius:4px}
+.meta{font-size:12px;color:var(--ink2)}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;color:var(--ink2);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--grid)}
+td{padding:8px;border-bottom:1px solid var(--grid);vertical-align:middle}
+tr.drv:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.dname{font-weight:600}
+.chip{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--ring);color:var(--ink2);margin-right:4px;white-space:nowrap}
+.bar{position:relative;height:16px;min-width:150px}
+.bar .axis{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--axis)}
+.bar .b{position:absolute;top:3px;height:10px;border-radius:0}
+.bar .b.pos{border-radius:0 4px 4px 0}
+.bar .b.neg{border-radius:4px 0 0 4px}
+.sig{font-weight:650;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.missing td{color:var(--muted)}
+ul{margin:4px 0 0;padding-left:18px}
+li{margin:3px 0}
+.olk p{margin:4px 0 8px}
+.lbl{font-size:12px;font-weight:650;color:var(--ink2);margin-top:8px}
+.levels td{padding:6px 8px}
+#tip{position:fixed;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--ring);border-radius:8px;padding:8px 10px;font-size:12px;max-width:320px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none;z-index:9}
+a{color:var(--accent)}
+.legend{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--ink2);margin-bottom:8px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+footer{margin-top:20px;color:var(--ink2);font-size:12px}
+.note{font-size:12px;color:var(--ink2);margin-top:8px}
+svg text{font:11px system-ui,-apple-system,"Segoe UI",sans-serif;fill:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Global Financial Intelligence Terminal</h1>
+    <div class="sub" id="asof"></div>
+  </div>
+  <div id="mode"></div>
+</header>
+<div class="tabs" role="tablist" id="tabs"></div>
+<main id="view"></main>
+<footer id="foot"></footer>
+</div>
+<div id="tip" role="tooltip"></div>
+<script>
+const DATA = {"title": "Financial Intelligence Terminal: snapshot 17 Nov 2026", "mode": "snapshot", "as_of": "readings to 13 Nov 2026 (looked up 17 Nov 2026)", "generated_at": "17 Nov 2026", "assets": [{"symbol": "XAU", "name": "Gold (XAU/USD)", "scores": {"short": {"composite": -0.52, "agreement": 0.56, "stance": "Contested", "coverage": 0.88}, "medium": {"composite": -0.32, "agreement": 0.53, "stance": "Contested", "coverage": 0.92}, "long": {"composite": -0.15, "agreement": 0.51, "stance": "Contested", "coverage": 0.92}}, "drivers": [{"key": "real_yield", "name": "US 10y real yield (TIPS)", "layer": 1, "weight": 0.15, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Falling", "evidence_class": "Fact", "source_name": "247 Wall St, 10 Nov 2026 (FRED DFII10)", "source_url": "https://247wallst.com/investing/2026/11/10/treasuries-now-offer-2-66-above-inflation-are-dividend-stocks-in-trouble/", "value": null, "raw_value": null, "as_of": "2026-11-09", "z": null, "percentile": null, "signal": -1.5, "signal_prev": null, "status": "ok", "note": "", "reading": "2.66% on 9 Nov, up from 1.84% a year earlier; near an 18-year high (2.92% on 2 Oct)"}, {"key": "usd", "name": "US dollar (DXY)", "layer": 1, "weight": 0.1, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Falling", "evidence_class": "Fact", "source_name": "FXStreet, 11 Nov 2026", "source_url": "https://www.fxstreet.com/analysis/why-the-us-dollars-rally-isnt-as-strong-as-it-looks-202611111707", "value": null, "raw_value": null, "as_of": "2026-11-06", "z": null, "percentile": null, "signal": -1.5, "signal_prev": null, "status": "ok", "note": "", "reading": "DXY near 103, an 18-month high; up 3.4 points from the August low"}, {"key": "policy", "name": "Fed policy path", "layer": 1, "weight": 0.08, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "More cuts priced (2y yield falling)", "evidence_class": "Fact", "source_name": "BabyPips, 13 Nov 2026 (CME FedWatch)", "source_url": "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13", "value": null, "raw_value": null, "as_of": "2026-11-13", "z": null, "percentile": null, "signal": -2.0, "signal_prev": null, "status": "ok", "note": "", "reading": "Fed funds 3.75\u20134.00% after a September hike; a December hike fully priced, ~13% odds of 50 bp"}, {"key": "gpr", "name": "Geopolitical risk", "layer": 1, "weight": 0.05, "horizons": {"short": 1.0, "medium": 0.8, "long": 0.3}, "bullish_when": "Rising", "evidence_class": "AI interpretation", "source_name": "Khaleej Times / Reuters, 12 Nov 2026", "source_url": "https://www.khaleejtimes.com/business/gold-drops-3-to-over-one-year-low-as-fading-middle-east-peace-hopes-fan-inflation-fears", "value": null, "raw_value": null, "as_of": "2026-11-12", "z": null, "percentile": null, "signal": 0.5, "signal_prev": null, "status": "ok", "note": "", "reading": "US\u2013Iran talks stalled; Middle East risk is lifting oil but feeding inflation fears more than safe-haven buying"}, {"key": "cb", "name": "Central bank net purchases", "layer": 3, "weight": 0.15, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Rising", "evidence_class": "Estimate", "source_name": "World Gold Council, Gold Demand Trends Q3 2026", "source_url": "https://www.gold.org/download/file/21338/Executive-summary.pdf", "value": null, "raw_value": null, "as_of": "2026-11-03", "z": null, "percentile": null, "signal": 2.0, "signal_prev": null, "status": "ok", "note": "", "reading": "321 t bought in Q3 2026, +42% y/y and the most since Q4 2024; 675 t year to date"}, {"key": "etf", "name": "ETF flows and holdings", "layer": 4, "weight": 0.1, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Inflows", "evidence_class": "Fact", "source_name": "FXStreet / Money Metals, 8 Nov 2026 (WGC data)", "source_url": "https://www.fxstreet.com/analysis/etf-gold-flows-slow-in-october-but-remain-positive-202611082140", "value": null, "raw_value": null, "as_of": "2026-10-31", "z": null, "percentile": null, "signal": 1.0, "signal_prev": null, "status": "ok", "note": "", "reading": "+19 t in October ($2.7bn); holdings at a record 4,275 t; North American funds saw outflows"}, {"key": "cot", "name": "CFTC managed money positioning", "layer": 4, "weight": 0.08, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Low (room to buy); very high = crowded", "evidence_class": "Fact", "source_name": "Bullion Trading LLC, COT analysis (CFTC, 3 Nov 2026)", "source_url": "https://bulliontradingllc.com/blog/gold-cot-report-hedge-fund-positioning/", "value": null, "raw_value": null, "as_of": "2026-11-03", "z": null, "percentile": null, "signal": 0.5, "signal_prev": null, "status": "ok", "note": "", "reading": "Managed money net long 103,614 contracts, 26% of open interest; not extreme, and falling"}, {"key": "miner_margin", "name": "Miner AISC margin vs spot", "layer": 3, "weight": 0.04, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Rising AISC lifts the long-run floor", "evidence_class": "Fact", "source_name": "Company quarterly reports (SEC EDGAR)", "source_url": "https://www.sec.gov/edgar/search/", "value": null, "raw_value": null, "as_of": null, "z": null, "percentile": null, "signal": null, "signal_prev": null, "status": "missing", "note": "no reading looked up for this snapshot", "reading": ""}, {"key": "asia", "name": "Asian physical demand", "layer": 2, "weight": 0.07, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Rising", "evidence_class": "Estimate", "source_name": "World Gold Council, GDT Q3 2026: Investment", "source_url": "https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q3-2026/investment", "value": null, "raw_value": null, "as_of": "2026-11-03", "z": null, "percentile": null, "signal": 0.0, "signal_prev": null, "status": "ok", "note": "", "reading": "India bar and coin 55 t in Q3, \u221240% y/y; PBoC bought for an 8th straight quarter"}, {"key": "comex", "name": "COMEX registered + eligible stocks, 1-month % change", "layer": 2, "weight": 0.05, "horizons": {"short": 1.0, "medium": 0.8, "long": 0.3}, "bullish_when": "Falling (physical tightness)", "evidence_class": "Fact", "source_name": "CME Group warehouse stocks", "source_url": "https://www.cmegroup.com/clearing/operations-and-deliveries/nymex-delivery-notices.html", "value": null, "raw_value": null, "as_of": null, "z": null, "percentile": null, "signal": null, "signal_prev": null, "status": "missing", "note": "no reading looked up for this snapshot", "reading": ""}, {"key": "trend", "name": "Price trend and structure", "layer": 5, "weight": 0.1, "horizons": {"short": 1.0, "medium": 0.8, "long": 0.3}, "bullish_when": "Above the average", "evidence_class": "Fact", "source_name": "ISA Bullion daily report, 13 Nov 2026", "source_url": "https://www.isabullion.com/?p=9193", "value": null, "raw_value": null, "as_of": "2026-11-12", "z": null, "percentile": null, "signal": -2.0, "signal_prev": null, "status": "ok", "note": "", "reading": "$3,876 close on 12 Nov, the lowest since Oct 2025; about 31% below the 2026 high of $5,599"}], "missing": ["Miner AISC margin vs spot", "COMEX registered + eligible stocks, 1-month % change"], "contradictions": ["Gold is falling while central banks buy at the fastest pace since 2024 and ETF holdings sit at a record: official and investor demand is being outweighed by rate-hike expectations and the strong dollar.", "Central bank net purchases points up (+2.0) against the bearish composite.", "ETF flows and holdings points up (+1.0) against the bearish composite.", "Layer conflict: macro layer is bearish, positioning and flows layer is bullish.", "Layer conflict: macro layer is bearish, institutional layer is bullish."], "price": 3876.0, "price_date": "12 Nov 2026 close (OTC)", "price_source": "ISA Bullion daily report", "price_change": "\u22122.8% on 12 Nov; third straight weekly loss; 2026 range $3,853 to $5,599", "history": [["2026-10-29", 4021], ["2026-10-30", 3875], ["2026-11-02", 3948], ["2026-11-03", 3928], ["2026-11-04", 4060], ["2026-11-05", 4087], ["2026-11-06", 4066], ["2026-11-09", 4139], ["2026-11-10", 4031], ["2026-11-11", 3987], ["2026-11-12", 3876]], "history_label": "last 2 weeks, daily OTC close", "price_note": "Closes from ISA Bullion's daily reports (each report gives the previous session's close).", "levels": {"resistance": [{"price": 4000, "label": "Round number; 12 Nov session high"}, {"price": 4148, "label": "9\u201310 Nov session highs"}], "support": [{"price": 3852, "label": "12 Nov low, lowest since 3 Oct 2025 (Reuters/LSEG)"}, {"price": 3800, "label": "ISA Bullion support level (3 Nov report)"}], "sma200": null, "high_52w": 5598.58, "low_52w": 3852.53, "note": "Snapshot levels come from the cited reports; the live engine computes swing levels and the 200-day average from price history."}, "changes": ["WGC Q3 data (3 Nov): central bank buying 321 t, +42% y/y.", "October CPI hotter than expected (10 Nov): a December Fed hike is now fully priced.", "Price broke below $3,900 on 12 Nov to the lowest level since October 2025."], "outlooks": [{"horizon": "Long term (1\u201312 months)", "stance": "Contested", "evidence_class": "AI interpretation", "thesis": "Structural demand is strong: central banks bought 321 t in Q3 and ETF holdings are at a record. Against it, real yields near 18-year highs and a hiking Fed raise the cost of holding gold. The long-term case rests on central bank buying continuing while the hiking cycle ends.", "supports": ["Central bank buying 321 t in Q3, +42% y/y", "Record ETF holdings, 4,275 t", "Positioning not crowded (26% of open interest)"], "contradicts": ["10y real yield 2.66%", "Fed hiking; December hike priced", "Dollar at an 18-month high"], "invalidation": ["Q4 central bank buying falls below 150 t", "Global ETF holdings fall for 2 straight months"], "confirmation": ["Fed signals the end of hikes in 2027 guidance", "Real yields fall back below 2.3%"]}, {"horizon": "Medium term (1\u20134 weeks)", "stance": "Contested", "evidence_class": "AI interpretation", "thesis": "Rates and the dollar dominate into the 8\u20139 December FOMC. With a hike already priced, the risk is a hawkish message on 2027. Price structure is weak: a third weekly loss and a one-year low.", "supports": ["ETF inflows still positive in October"], "contradicts": ["December hike fully priced", "Price at a one-year low", "Dollar strength"], "invalidation": ["Weekly close back above $4,150", "US data soft enough to price out the December hike"], "confirmation": ["Weekly close below $3,850", "FOMC guides to further hikes in 2027"]}, {"horizon": "Short term (1\u20135 days)", "stance": "Contested", "evidence_class": "AI interpretation", "thesis": "Momentum is down after a 2.8% drop to $3,876. The $3,852 low is the first test; $4,000 is the first resistance. US data that moves December hike odds will drive daily moves.", "supports": ["Close to the $3,852 one-year low, where buyers stepped in on 12 Nov"], "contradicts": ["Three straight down sessions; rejection near $4,000"], "invalidation": ["Daily close above $4,000"], "confirmation": ["Daily close below $3,852"]}]}, {"symbol": "BTC", "name": "Bitcoin (BTC/USD)", "scores": {"short": {"composite": -1.3, "agreement": 0.9, "stance": "Bearish", "coverage": 0.91}, "medium": {"composite": -1.22, "agreement": 0.83, "stance": "Bearish", "coverage": 0.87}, "long": {"composite": -1.05, "agreement": 0.75, "stance": "Bearish", "coverage": 0.83}}, "drivers": [{"key": "liquidity", "name": "Global liquidity / Fed policy", "layer": 1, "weight": 0.15, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Expanding", "evidence_class": "AI interpretation", "source_name": "BabyPips, 13 Nov 2026 (CME FedWatch)", "source_url": "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13", "value": null, "raw_value": null, "as_of": "2026-11-13", "z": null, "percentile": null, "signal": -1.5, "signal_prev": null, "status": "ok", "note": "Proxy until the live FRED net-liquidity feed runs", "reading": "No direct liquidity reading collected; proxy: Fed hiking and the 10y Treasury yield back above 5%"}, {"key": "usd", "name": "US dollar (DXY)", "layer": 1, "weight": 0.07, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Falling", "evidence_class": "Fact", "source_name": "FXStreet, 11 Nov 2026", "source_url": "https://www.fxstreet.com/analysis/why-the-us-dollars-rally-isnt-as-strong-as-it-looks-202611111707", "value": null, "raw_value": null, "as_of": "2026-11-06", "z": null, "percentile": null, "signal": -1.5, "signal_prev": null, "status": "ok", "note": "", "reading": "DXY near 103, an 18-month high"}, {"key": "etf", "name": "ETF flows and holdings", "layer": 4, "weight": 0.15, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Inflows", "evidence_class": "Fact", "source_name": "The Block (SoSoValue data), 7 Nov 2026", "source_url": "https://theblock.co/news/markets/2026-11-07-bitcoin-etfs-flip-negative-for-2026-after-1-28-billion-outflow-week-worst-since-june-435984", "value": null, "raw_value": null, "as_of": "2026-11-13", "z": null, "percentile": null, "signal": -2.0, "signal_prev": null, "status": "ok", "note": "", "reading": "\u2212$1.28bn in the week of 2\u20136 Nov; November outflows near $2bn by 13 Nov; 2026 net flows now negative"}, {"key": "reserves", "name": "Exchange reserves", "layer": 4, "weight": 0.08, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Falling", "evidence_class": "Estimate", "source_name": "CryptoQuant QuickTake (early Nov 2026)", "source_url": "https://cryptoquant.com/insights/quicktake/6af0bfa898fe666a74dfc673", "value": null, "raw_value": null, "as_of": "2026-11-05", "z": null, "percentile": null, "signal": -1.5, "signal_prev": null, "status": "ok", "note": "", "reading": "2.83M BTC on exchanges, 98th percentile of the past year"}, {"key": "lth", "name": "Long-term holder supply, 30-day % change", "layer": 4, "weight": 0.07, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Rising", "evidence_class": "Estimate", "source_name": "Glassnode (paid)", "source_url": "https://glassnode.com/", "value": null, "raw_value": null, "as_of": null, "z": null, "percentile": null, "signal": null, "signal_prev": null, "status": "missing", "note": "no reading looked up for this snapshot", "reading": ""}, {"key": "mvrv", "name": "MVRV ratio", "layer": 4, "weight": 0.08, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Low; very high = overvalued", "evidence_class": "Estimate", "source_name": "CryptoQuant QuickTake (early Nov 2026)", "source_url": "https://cryptoquant.com/insights/quicktake/6af0bfa898fe666a74dfc673", "value": null, "raw_value": null, "as_of": "2026-11-05", "z": null, "percentile": null, "signal": 0.5, "signal_prev": null, "status": "ok", "note": "", "reading": "MVRV 1.40 and NUPL 0.29: holders still in modest profit, far from overvalued"}, {"key": "funding", "name": "Derivatives: funding and futures flow", "layer": 4, "weight": 0.07, "horizons": {"short": 1.0, "medium": 0.8, "long": 0.3}, "bullish_when": "Neutral; high positive = crowded longs", "evidence_class": "Estimate", "source_name": "Glassnode, BTC Market Pulse week 45", "source_url": "https://research.glassnode.com/btc-market-pulse-week-45/", "value": null, "raw_value": null, "as_of": "2026-11-09", "z": null, "percentile": null, "signal": -0.5, "signal_prev": null, "status": "ok", "note": "", "reading": "Funding softened; futures CVD \u2212$790m, showing renewed sell pressure"}, {"key": "cme", "name": "CME leveraged funds net position, 4-week change", "layer": 4, "weight": 0.03, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Short covering", "evidence_class": "Fact", "source_name": "CFTC Commitments of Traders", "source_url": "https://publicreporting.cftc.gov/", "value": null, "raw_value": null, "as_of": null, "z": null, "percentile": null, "signal": null, "signal_prev": null, "status": "missing", "note": "no reading looked up for this snapshot", "reading": ""}, {"key": "miner_rev", "name": "Miner revenue (hashprice) and hashrate", "layer": 2, "weight": 0.05, "horizons": {"short": 0.5, "medium": 1.0, "long": 0.7}, "bullish_when": "Miners profitable (no forced selling)", "evidence_class": "Estimate", "source_name": "Hashrate Index roundup, 9 Nov 2026", "source_url": "https://hashrateindex.com/blog/hashrate-index-roundup-november-9-2026/", "value": null, "raw_value": null, "as_of": "2026-11-09", "z": null, "percentile": null, "signal": -1.0, "signal_prev": null, "status": "ok", "note": "", "reading": "Hashprice $31.89/PH/day on 9 Nov, 11% below its 30-day average; hashrate \u22127.8% in the week"}, {"key": "hashrate", "name": "Network hashrate, 3-month % change", "layer": 2, "weight": 0.03, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Rising", "evidence_class": "Estimate", "source_name": "mempool.space API", "source_url": "https://mempool.space/docs/api", "value": null, "raw_value": null, "as_of": null, "z": null, "percentile": null, "signal": null, "signal_prev": null, "status": "missing", "note": "no reading looked up for this snapshot", "reading": ""}, {"key": "corporate", "name": "Corporate / treasury buying", "layer": 3, "weight": 0.07, "horizons": {"short": 0.3, "medium": 0.8, "long": 1.0}, "bullish_when": "Net buying", "evidence_class": "Fact", "source_name": "CryptoSlate via Coinalyze news feed, 10 Nov 2026", "source_url": "https://coinalyze.net/bitcoin/usdc/deribit/btc_usdc-14nov26/price-chart-live/", "value": null, "raw_value": null, "as_of": "2026-11-09", "z": null, "percentile": null, "signal": 0.5, "signal_prev": null, "status": "ok", "note": "", "reading": "Strategy funded further BTC purchases with stock sales, 2\u20138 Nov (filing 9 Nov)"}, {"key": "trend", "name": "Price trend and structure", "layer": 5, "weight": 0.1, "horizons": {"short": 1.0, "medium": 0.8, "long": 0.3}, "bullish_when": "Above the average", "evidence_class": "Fact", "source_name": "The Motley Fool, 13 Nov 2026", "source_url": "https://www.fool.com/investing/2026/11/13/why-bitcoin-is-falling-today/", "value": null, "raw_value": null, "as_of": "2026-11-13", "z": null, "percentile": null, "signal": -2.0, "signal_prev": null, "status": "ok", "note": "", "reading": "Lost the 200-day average on 12 Nov; below $70,000 on 13 Nov for the first time since August"}], "missing": ["Long-term holder supply, 30-day % change", "CME leveraged funds net position, 4-week change", "Network hashrate, 3-month % change"], "contradictions": ["On-chain valuation is not stretched (MVRV 1.40) and corporate buyers are still adding, but ETF selling of about 5x weekly new supply is overwhelming that demand."], "price": 73208.24, "price_date": "12 Nov 2026, 6:30 am ET", "price_source": "Fortune daily price", "price_change": "Fell below $70,000 on 13 Nov; \u221228% vs a year earlier; sixth weekly decline", "history": [["2026-11-02", 77750.64], ["2026-11-03", 76995.4], ["2026-11-04", 78520.27], ["2026-11-05", 80221.4], ["2026-11-06", 76023.87], ["2026-11-08", 75818.94], ["2026-11-09", 74549.48], ["2026-11-10", 74260.59], ["2026-11-11", 73937.78], ["2026-11-12", 73208.24]], "history_label": "last 2 weeks, morning ET price", "price_note": "Fortune's daily morning price; the intraday break below $70,000 on 13 Nov is not in this series.", "levels": {"resistance": [{"price": 76000, "label": "6 Nov breakdown level (ETF outflow day)"}, {"price": 81000, "label": "Post-midterm rally high that failed to hold"}], "support": [{"price": 70000, "label": "Round number; broken intraday on 13 Nov"}], "sma200": null, "high_52w": null, "low_52w": null, "note": "Snapshot levels come from the cited reports; the live engine computes swing levels and the 200-day average from price history."}, "changes": ["Spot ETFs: worst outflow week since June (\u2212$1.28bn, 2\u20136 Nov); 2026 net flows turned negative.", "Price lost the 200-day average (12 Nov) and $70,000 (13 Nov).", "December Fed hike fully priced after the October CPI report."], "outlooks": [{"horizon": "Long term (1\u201312 months)", "stance": "Bearish", "evidence_class": "AI interpretation", "thesis": "Tightening liquidity is the main headwind: the Fed is hiking and the dollar is strong. Valuation is moderate rather than stretched, which limits downside from forced revaluation, but no driver yet points to a turn in flows.", "supports": ["MVRV 1.40, not overvalued", "Corporate treasuries still buying"], "contradicts": ["Fed hiking, 10y yield above 5%", "ETF flows negative for 2026", "Exchange reserves at a 1-year high"], "invalidation": ["Two straight weeks of ETF inflows above $1bn", "Fed signals a pause"], "confirmation": ["MVRV falls below 1.2 while ETF outflows continue"]}, {"horizon": "Medium term (1\u20134 weeks)", "stance": "Bearish", "evidence_class": "AI interpretation", "thesis": "Flows decide this horizon, and they are negative: about $2bn left spot ETFs in the first half of November. Miner revenue is falling, which raises the risk of miner selling.", "supports": [], "contradicts": ["ETF outflows", "Rising exchange reserves", "Hashprice down 11% vs its 30-day average"], "invalidation": ["Weekly close back above $76,000", "ETF flows positive for a full week"], "confirmation": ["Weekly close below $70,000"]}, {"horizon": "Short term (1\u20135 days)", "stance": "Bearish", "evidence_class": "AI interpretation", "thesis": "Price is testing $70,000 after losing the 200-day average. Leveraged long liquidations on 13 Nov may have cleared some selling, but funding and futures flow still lean negative.", "supports": ["Liquidations may have reset leverage"], "contradicts": ["Futures CVD \u2212$790m", "Below the 200-day average"], "invalidation": ["Daily close above $76,000"], "confirmation": ["Daily close below $70,000"]}]}], "sources": [{"title": "247 Wall St, 10 Nov 2026 (FRED DFII10)", "url": "https://247wallst.com/investing/2026/11/10/treasuries-now-offer-2-66-above-inflation-are-dividend-stocks-in-trouble/"}, {"title": "BabyPips, 13 Nov 2026 (CME FedWatch)", "url": "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"}, {"title": "Bullion Trading LLC, COT analysis (CFTC, 3 Nov 2026)", "url": "https://bulliontradingllc.com/blog/gold-cot-report-hedge-fund-positioning/"}, {"title": "CoinStats weekly ETF report, 2\u20136 Nov 2026", "url": "https://coinstats.app/news/59499a339fec6491ef38a0580daa5efe5d41056cf080b85ce327ea18bed0c4af_Spot-Bitcoin-ETFs-Weekly-Report-128B-in-Outflows-November-26-2026/"}, {"title": "CryptoQuant QuickTake (early Nov 2026)", "url": "https://cryptoquant.com/insights/quicktake/6af0bfa898fe666a74dfc673"}, {"title": "CryptoSlate via Coinalyze news feed, 10 Nov 2026", "url": "https://coinalyze.net/bitcoin/usdc/deribit/btc_usdc-14nov26/price-chart-live/"}, {"title": "FXStreet / Money Metals, 8 Nov 2026 (WGC data)", "url": "https://www.fxstreet.com/analysis/etf-gold-flows-slow-in-october-but-remain-positive-202611082140"}, {"title": "FXStreet, 11 Nov 2026", "url": "https://www.fxstreet.com/analysis/why-the-us-dollars-rally-isnt-as-strong-as-it-looks-202611111707"}, {"title": "Fortune daily Bitcoin price, 12 Nov 2026", "url": "https://fortune.com/article/price-of-bitcoin-11-12-2026/"}, {"title": "Glassnode, BTC Market Pulse week 45", "url": "https://research.glassnode.com/btc-market-pulse-week-45/"}, {"title": "Hashrate Index roundup, 9 Nov 2026", "url": "https://hashrateindex.com/blog/hashrate-index-roundup-november-9-2026/"}, {"title": "ISA Bullion daily report, 13 Nov 2026", "url": "https://www.isabullion.com/?p=9193"}, {"title": "Khaleej Times / Reuters, 12 Nov 2026", "url": "https://www.khaleejtimes.com/business/gold-drops-3-to-over-one-year-low-as-fading-middle-east-peace-hopes-fan-inflation-fears"}, {"title": "NewsBTC via Coinalyze news feed, 12 Nov 2026", "url": "https://coinalyze.net/bitcoin/usdc/deribit/btc_usdc-16nov26/price-chart-live/"}, {"title": "The Block (SoSoValue data), 7 Nov 2026", "url": "https://theblock.co/news/markets/2026-11-07-bitcoin-etfs-flip-negative-for-2026-after-1-28-billion-outflow-week-worst-since-june-435984"}, {"title": "The Motley Fool, 13 Nov 2026", "url": "https://www.fool.com/investing/2026/11/13/why-bitcoin-is-falling-today/"}, {"title": "The Nation (Reuters/LSEG), 13 Nov 2026", "url": "https://www.nationthailand.com/business/trading-investment/40073439"}, {"title": "USAGOLD, live gold price page", "url": "https://www.usagold.com/federal-reserve-gold-prices"}, {"title": "World Gold Council, GDT Q3 2026: Investment", "url": "https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q3-2026/investment"}, {"title": "World Gold Council, Gold Demand Trends Q3 2026", "url": "https://www.gold.org/download/file/21338/Executive-summary.pdf"}, {"title": "investingLive, 13 Nov 2026", "url": "https://investinglive.com/cryptocurrency/bitcoin-dipped-under-70k-first-time-since-august/"}], "disclaimer": "Snapshot signals were assigned by Claude from the cited readings; composites, agreement and stances are computed by the engine's scorecard. Research tool for personal use; not investment advice."};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (v, d=2) => v==null||isNaN(v) ? "n/a" : Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn = v => v==null ? "n/a" : (v>0?"+":"") + Number(v).toFixed(1);
+const tip = $("#tip");
+function showTip(e, h){ tip.innerHTML = h; tip.style.display = "block";
+  const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8), y = Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 8);
+  tip.style.left = x + "px"; tip.style.top = y + "px"; }
+function hideTip(){ tip.style.display = "none"; }
+
+$("#asof").textContent = `Data as of ${DATA.as_of} · generated ${DATA.generated_at}`;
+$("#mode").innerHTML = DATA.mode === "live"
+  ? `<span class="badge live">Live engine run</span>`
+  : `<span class="badge snap">Snapshot: readings looked up by hand, signals assigned by Claude</span>`;
+
+const slug = a => a.symbol === "XAU" ? "gold" : "bitcoin";
+const tabs = $("#tabs");
+DATA.assets.forEach(a => { const b = document.createElement("button"); b.className = "tab"; b.setAttribute("role","tab");
+  b.textContent = a.name; b.dataset.slug = slug(a); b.onclick = () => { location.hash = slug(a); }; tabs.appendChild(b); });
+
+function meter(c){ if (c==null) return `<div class="meter"><span class="zero"></span></div>`;
+  const w = Math.min(Math.abs(c),2)/2*50, col = c>=0 ? "var(--bull)" : "var(--bear)";
+  const left = c>=0 ? 50 : 50-w;
+  return `<div class="meter" aria-hidden="true"><span class="fill" style="left:${left}%;width:${w}%;background:${col}"></span><span class="zero"></span></div>`; }
+
+function horizonTile(a, h, label){ const s = a.scores[h];
+  return `<div class="card"><div class="kicker">${label}</div><div class="stance">${esc(s.stance)}</div>
+  ${meter(s.composite)}<div class="meta num">Composite ${sgn(s.composite)} of ±2 · agreement ${s.agreement==null?"n/a":Math.round(s.agreement*100)+"%"}
+  · coverage ${Math.round((s.coverage||0)*100)}% of weight</div></div>`; }
+
+function scorecard(a){
+  const rows = [...a.drivers].sort((x,y)=> (y.signal==null?-1:Math.abs(y.signal*y.weight)) - (x.signal==null?-1:Math.abs(x.signal*x.weight)));
+  const body = rows.map((d,i) => {
+    if (d.signal==null) return `<tr class="missing"><td><div class="dname">${esc(d.name)}</div><span class="chip">Layer ${d.layer}</span></td>
+      <td colspan="3">Not collected (${esc(d.note||"no data")})</td><td class="num">${Math.round(d.weight*100)}%</td></tr>`;
+    const w = Math.min(Math.abs(d.signal),2)/2*50, pos = d.signal>=0;
+    const bar = `<div class="bar" aria-label="signal ${sgn(d.signal)}"><span class="axis"></span><span class="b ${pos?"pos":"neg"}" style="${pos?`left:50%`:`left:${50-w}%`};width:${w}%;background:${pos?"var(--bull)":"var(--bear)"}"></span></div>`;
+    return `<tr class="drv" data-i="${i}"><td><div class="dname">${esc(d.name)}</div><span class="chip">Layer ${d.layer}</span><span class="chip">${esc(d.evidence_class)}</span></td>
+      <td><div>${esc(d.reading)}</div><div class="meta">${esc(d.as_of||"")} · ${d.source_url?`<a href="${esc(d.source_url)}" target="_blank" rel="noopener">${esc(d.source_name)}</a>`:esc(d.source_name)}</div></td>
+      <td>${bar}</td><td class="sig">${sgn(d.signal)}</td><td class="num">${Math.round(d.weight*100)}%</td></tr>`; }).join("");
+  return {rows, html:`<div class="card" style="margin-bottom:12px"><h2>Driver scorecard</h2>
+    <div class="legend"><span><span class="sw" style="background:var(--bear)"></span>Bearish for price</span><span><span class="sw" style="background:var(--bull)"></span>Bullish for price</span><span>Scale −2 to +2, sorted by weighted contribution</span></div>
+    <table><thead><tr><th>Driver</th><th>Latest reading</th><th style="text-align:center">−2 &nbsp; signal &nbsp; +2</th><th style="text-align:right">Signal</th><th>Weight</th></tr></thead><tbody>${body}</tbody></table></div>`}; }
+
+function priceChart(a){
+  const h = a.history||[]; if (h.length < 2) return `<div class="card"><h2>Price</h2><p class="meta">No price history in this file.</p></div>`;
+  const W=640,H=260,L=56,R=86,T=14,B=26; const xs=h.map((p,i)=>i), ys=h.map(p=>p[1]);
+  const lv = [...(a.levels.support||[]), ...(a.levels.resistance||[])].map(l=>l.price);
+  let lo=Math.min(...ys,...lv), hi=Math.max(...ys,...lv); const pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
+  const X=i=>L+(i/(h.length-1))*(W-L-R), Y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
+  const ticks=[]; const step=(hi-lo)/4; for(let k=0;k<=4;k++) ticks.push(lo+step*k);
+  const path=h.map((p,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(p[1]).toFixed(1)).join("");
+  const dec = a.symbol==="BTC"?0:0;
+  const lvl=(l,kind)=>`<line x1="${L}" x2="${W-R}" y1="${Y(l.price)}" y2="${Y(l.price)}" stroke="var(--axis)" stroke-dasharray="4 4"/><text x="${W-R+6}" y="${Y(l.price)+4}">${kind} ${fmt(l.price,dec)}</text>`;
+  const xl=[0,Math.floor((h.length-1)/2),h.length-1].map(i=>`<text x="${X(i)}" y="${H-6}" text-anchor="middle">${esc(h[i][0].slice(5))}</text>`).join("");
+  return `<div class="card"><h2>Price, ${esc(a.history_label||"")}</h2>
+  <svg id="pc" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Price chart with key levels">
+  ${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)"/><text x="${L-6}" y="${Y(t)+4}" text-anchor="end">${fmt(t,0)}</text>`).join("")}
+  ${(a.levels.support||[]).map(l=>lvl(l,"S")).join("")}${(a.levels.resistance||[]).map(l=>lvl(l,"R")).join("")}
+  <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+  ${xl}<line id="ch" y1="${T}" y2="${H-B}" stroke="var(--axis)" style="display:none"/><circle id="cd" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" style="display:none"/>
+  <rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" id="hit"/></svg>
+  <div class="note">${esc(a.price_note||"")}</div></div>`; }
+
+function wireChart(a){
+  const svg=$("#pc"); if(!svg) return; const h=a.history; const W=640,L=56,R=86,T=14,B=26,H=260;
+  const ys=h.map(p=>p[1]); const lv=[...(a.levels.support||[]),...(a.levels.resistance||[])].map(l=>l.price);
+  let lo=Math.min(...ys,...lv),hi=Math.max(...ys,...lv); const pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
+  const X=i=>L+(i/(h.length-1))*(W-L-R), Y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
+  const hit=$("#hit"), ch=$("#ch"), cd=$("#cd");
+  hit.addEventListener("mousemove", e=>{ const r=svg.getBoundingClientRect(); const sx=(e.clientX-r.left)*W/r.width;
+    const i=Math.max(0,Math.min(h.length-1,Math.round((sx-L)/(W-L-R)*(h.length-1))));
+    ch.setAttribute("x1",X(i)); ch.setAttribute("x2",X(i)); ch.style.display="block";
+    cd.setAttribute("cx",X(i)); cd.setAttribute("cy",Y(h[i][1])); cd.style.display="block";
+    showTip(e, `<b>${esc(h[i][0])}</b><br>Close ${fmt(h[i][1], 2)}`); });
+  hit.addEventListener("mouseleave", ()=>{ ch.style.display="none"; cd.style.display="none"; hideTip(); });
+}
+
+function levelsCard(a){ const l=a.levels;
+  const row=(k,x)=>`<tr><td><b>${k}</b></td><td class="num">${fmt(x.price,2)}</td><td class="meta">${esc(x.label)}</td></tr>`;
+  return `<div class="card"><h2>Key levels</h2><table class="levels"><tbody>
+  ${(l.resistance||[]).slice().reverse().map((x,i,arr)=>row("R"+(arr.length-i),x)).join("")}
+  <tr><td><b>Last</b></td><td class="num"><b>${fmt(a.price,2)}</b></td><td class="meta">${esc(a.price_date||"")}</td></tr>
+  ${(l.support||[]).map((x,i)=>row("S"+(i+1),x)).join("")}
+  ${l.sma200!=null?`<tr><td>200-day avg</td><td class="num">${fmt(l.sma200,2)}</td><td></td></tr>`:""}
+  ${l.high_52w!=null?`<tr><td>52-wk range</td><td class="num" colspan="2">${fmt(l.low_52w,0)} to ${fmt(l.high_52w,0)}</td></tr>`:""}
+  </tbody></table>${l.note?`<div class="note">${esc(l.note)}</div>`:""}</div>`; }
+
+function list(items){ return items&&items.length ? `<ul>${items.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">None.</p>`; }
+
+function outlooks(a){ return `<div class="grid3">${(a.outlooks||[]).map(o=>`<div class="card olk">
+  <div class="kicker">${esc(o.horizon)}</div><div class="stance">${esc(o.stance)}</div>
+  <span class="chip">${esc(o.evidence_class||"AI interpretation")}</span>
+  <p>${esc(o.thesis)}</p>
+  <div class="lbl">Supporting</div>${list(o.supports)}
+  <div class="lbl">Contradicting</div>${list(o.contradicts)}
+  <div class="lbl">Would invalidate</div>${list(o.invalidation)}
+  <div class="lbl">Would confirm</div>${list(o.confirmation)}
+  </div>`).join("")}</div>`; }
+
+function render(){
+  const s = (location.hash||"#gold").slice(1); const a = DATA.assets.find(x=>slug(x)===s) || DATA.assets[0];
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected", t.dataset.slug===slug(a)));
+  const sc = scorecard(a);
+  $("#view").innerHTML = `
+  <div class="grid4">
+    <div class="card"><div class="kicker">${esc(a.name)}</div><div class="hero">${fmt(a.price, 2)}</div>
+      <div class="meta">${esc(a.price_date||"")} · ${esc(a.price_source||"")}</div>
+      ${a.price_change?`<div class="meta" style="margin-top:6px">${esc(a.price_change)}</div>`:""}</div>
+    ${horizonTile(a,"long","Long term · 1–12 months")}${horizonTile(a,"medium","Medium term · 1–4 weeks")}${horizonTile(a,"short","Short term · 1–5 days")}
+  </div>
+  ${sc.html}
+  <div class="grid2">${priceChart(a)}${levelsCard(a)}</div>
+  <h2 style="margin:18px 0 10px">Outlooks</h2>${outlooks(a)}
+  <div class="grid2"><div class="card"><h2>Contradictions</h2>${list(a.contradictions)}<h2 style="margin-top:14px">What changed</h2>${list(a.changes)}</div>
+  <div class="card"><h2>Not collected yet</h2>${list(a.missing)}<div class="note">Missing drivers are left out of the composite; coverage on each horizon tile shows how much weight had data.</div></div></div>`;
+  document.querySelectorAll("tr.drv").forEach(tr => { const d = sc.rows[+tr.dataset.i];
+    tr.addEventListener("mousemove", e=>showTip(e, `<b>${esc(d.name)}</b><br>Signal ${sgn(d.signal)} · weight ${Math.round(d.weight*100)}%<br>Bullish when: ${esc(d.bullish_when)}${d.z!=null?`<br>z-score ${Number(d.z).toFixed(2)}, percentile ${Math.round(d.percentile)}`:""}${d.note?`<br>${esc(d.note)}`:""}`));
+    tr.addEventListener("mouseleave", hideTip); });
+  wireChart(a);
+}
+addEventListener("hashchange", render); render();
+
+$("#foot").innerHTML = `<div class="card"><h2>Sources</h2>${DATA.sources&&DATA.sources.length?`<ul>${DATA.sources.map(s=>`<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a></li>`).join("")}</ul>`:`<p class="meta">Listed per driver.</p>`}
+<p class="note">Evidence classes: Fact (published figure) · Estimate (third-party or modelled figure) · AI interpretation (Claude's reading of the evidence) · Model forecast. ${esc(DATA.disclaimer||"")}</p></div>`;
+</script>
+</body>
+</html>
