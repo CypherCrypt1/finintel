@@ -38,7 +38,7 @@ class Collector:
 
     def try_(self, sid, fn):
         src = sid.split(":")[0]
-        if self.fails.get(src, 0) >= (8 if src == "wb" else 4):
+        if self.fails.get(src, 0) >= (5 if src == "wb" else 4):
             self.errors[sid] = "skipped: source failed repeatedly earlier in this run"
             return None
         try:
@@ -632,7 +632,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
             prev = {}
     fetched, carried = dict(prev.get("fetched", {})), {}
 
-    def section(name, fetch, empty, prev_val):
+    def section(name, fetch, empty, prev_val, complete=None):
         """Fetch a section if due; otherwise, or on failure, carry forward the previous good copy."""
         age = _age_days(prev, name)
         due = offline is False and (age is None or age >= REFRESH_DAYS.get(name, 0) or not prev_val)
@@ -641,7 +641,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
         val = fetch() if not offline else empty
         ok = bool(val) and (not isinstance(val, tuple) or bool(val[0]))
         if ok:
-            fetched[name] = NOW.strftime("%Y-%m-%d")
+            if complete is None or complete(val):  # partial fetches are retried on the next run
+                fetched[name] = NOW.strftime("%Y-%m-%d")
             if isinstance(val, dict) and isinstance(prev_val, dict):  # fill keys that failed today
                 miss = [k for k in prev_val if k not in val]
                 if miss:
@@ -666,7 +667,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
     elif eer:
         fetched["eer"] = NOW.strftime("%Y-%m-%d")
     c.stage("start worldbank")
-    wb_pair = section("wb", lambda: collect_wb(c), ({}, {}), (prev.get("wb"), prev.get("meta", {}).get("worldbank", {}).get("published")) if prev.get("wb") else None)
+    wb_pair = section("wb", lambda: collect_wb(c), ({}, {}), (prev.get("wb"), prev.get("meta", {}).get("worldbank", {}).get("published")) if prev.get("wb") else None,
+                      complete=lambda v: len(v[0]) >= 0.8 * len(G.WB))
     if isinstance(wb_pair, tuple):
         wb, wb_pub = wb_pair
         wb_pub = wb_pub if isinstance(wb_pub, dict) else {"_": wb_pub}
@@ -678,13 +680,14 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
             carried["wb"] = {"keys": miss, "from": prev.get("fetched", {}).get("wb")}
             wb = {**{k: prev["wb"][k] for k in miss}, **wb}
     c.stage("start imf")
-    imf = section("imf", lambda: imf_block(collect_imf(c)), {}, prev.get("imf"))
+    imf = section("imf", lambda: imf_block(collect_imf(c)), {}, prev.get("imf"), complete=lambda v: len(v) >= 0.8 * len(G.IMF))
     imf_df = None
     if imf:
         rows = [(i, y, v, code) for code, d in imf.items() for i, x in d.items() for y, v in zip(x["series"]["years"], x["series"]["values"])]
         imf_df = pd.DataFrame(rows, columns=["iso3", "year", "value", "code"]) if rows else None
     c.stage("start comtrade")
-    trade = section("trade", lambda: collect_trade(c), {}, prev.get("trade"))
+    trade = section("trade", lambda: collect_trade(c), {}, prev.get("trade"),
+                    complete=lambda v: sum(1 for x in (v.get("countries") or {}).values() if x.get("exports")) >= 9)
     c.stage("start sec")
     companies = section("companies", lambda: collect_companies(c), [], prev.get("companies"))
     local = os.path.join(os.path.dirname(prev_path or "."), "companies.json")

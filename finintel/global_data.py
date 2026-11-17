@@ -88,13 +88,35 @@ def ser(s: pd.Series, n: int = 520, nd: int = 4) -> dict:
 
 # --------------------------------------------------------------- World Bank
 def worldbank(code: str, iso3: list[str]) -> tuple[pd.DataFrame, dict]:
-    url = f"https://api.worldbank.org/v2/country/{';'.join(iso3)}/indicator/{code}"
-    j = get(url, {"format": "json", "per_page": 1000, "date": "2005:2026"}, timeout=90, retries=2, pause=4).json()
-    if not isinstance(j, list) or len(j) < 2 or not j[1]:
-        raise ConnectorError(f"World Bank {code}: empty")
-    rows = [(x["countryiso3code"] or x["country"]["id"], int(x["date"]), x["value"]) for x in j[1] if x["value"] is not None]
-    df = pd.DataFrame(rows, columns=["iso3", "year", "value"])
-    return df, {"published": j[0].get("lastupdated")}
+    """World Bank WDI; falls back to DBnomics (public mirror of WDI) when the World Bank API fails."""
+    errs = []
+    try:
+        url = f"https://api.worldbank.org/v2/country/{';'.join(iso3)}/indicator/{code}"
+        j = get(url, {"format": "json", "per_page": 1000, "date": "2005:2026"}, timeout=45, retries=0).json()
+        if isinstance(j, list) and len(j) > 1 and j[1]:
+            rows = [(x["countryiso3code"] or x["country"]["id"], int(x["date"]), x["value"]) for x in j[1] if x["value"] is not None]
+            return pd.DataFrame(rows, columns=["iso3", "year", "value"]), {"published": j[0].get("lastupdated"), "via": "World Bank API"}
+        errs.append("World Bank API: empty")
+    except Exception as e:
+        errs.append(f"World Bank API: {e}")
+    try:
+        j = get("https://api.db.nomics.world/v22/series/WB/WDI", {"dimensions": json.dumps({"indicator": [code]}), "observations": 1, "limit": 1000},
+                timeout=60, retries=1).json()
+        rows = []
+        for d in j.get("series", {}).get("docs", []):
+            dims = d.get("dimensions", {}) or {}
+            ctry = dims.get("country") or str(d.get("series_code", "")).split("-")[-1]
+            if ctry not in iso3:
+                continue
+            for per, v in zip(d.get("period", []), d.get("value", [])):
+                if v not in (None, "NA") and str(per)[:4].isdigit() and int(str(per)[:4]) >= 2005:
+                    rows.append((ctry, int(str(per)[:4]), float(v)))
+        if rows:
+            return pd.DataFrame(rows, columns=["iso3", "year", "value"]), {"published": None, "via": "DBnomics mirror of WDI"}
+        errs.append("DBnomics: no rows")
+    except Exception as e:
+        errs.append(f"DBnomics: {e}")
+    raise ConnectorError(f"World Bank {code}: " + "; ".join(errs)[:300])
 
 
 # --------------------------------------------------------------------- IMF

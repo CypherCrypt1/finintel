@@ -78,3 +78,14 @@ not investment advice.
 - `reference/`: hand-entered, sourced data (calendar, central banks, WGC demand, ETF flows, geopolitics, briefings). Edit these JSON files to update those panels.
 - `finintel/technicals.py`, `quant.py`, `decision.py`: technical indicators, correlations/regimes/backtests, and the −100..+100 scores with confidence and data quality.
 - Each daily run writes `site/data/sovereign.json`; GitHub Actions publishes `site/` to GitHub Pages.
+
+## Global modules (v0.3)
+
+`finintel/global_build.py` builds `data/global.json` each day: 20 equity indices, 9 currencies, 19 commodities,
+US yields and market proxies (Yahoo Finance); policy rates and effective exchange rates (BIS); 33 World Bank and
+11 IMF WEO indicators (IMF via DBnomics when imf.org blocks the runner); goods trade by partner and product
+(UN Comtrade); currency futures positioning (CFTC). Slow-changing sources refresh weekly or monthly, and a failed
+source keeps its last good copy, labelled "carried forward" on the pages.
+
+Company data: SEC blocks GitHub's servers. Run `python -m finintel.companies` on your own computer, then commit
+and push `data/companies.json`.
