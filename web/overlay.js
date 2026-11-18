@@ -14,7 +14,8 @@ const PRESETS = [
   ["Unemployment around the world", "oecd:us:UNEMP,oecd:gb:UNEMP,oecd:de:UNEMP,oecd:fr:UNEMP,oecd:jp:UNEMP,oecd:ca:UNEMP"],
   ["Policy rates", "rate:US,rate:XM,rate:GB,rate:JP,rate:CA,rate:CH,rate:IN,rate:CN,rate:RU"],
 ];
-const OV = { file: null, loading: null, list: [], mode: "own", range: "5Y", log: false, corr: "chg", cache: {}, err: {}, chart: null };
+const TFS = [["D", "Daily"], ["W", "Weekly"], ["M", "Monthly"]];
+const OV = { file: null, loading: null, list: [], mode: "own", range: "5Y", log: false, tf: "W", candles: true, corr: "chg", cache: {}, err: {}, chart: null };
 window.OV = OV;
 
 /* ---------- catalogue ---------- */
@@ -25,7 +26,7 @@ function catalogue() {
   Object.entries(F).forEach(([id, s]) => add(id, s.name, s.group, s.unit, s.freq, s.source, () => s));
   const G = S.G || {};
   // gold and bitcoin from the core engine if the long file is missing them
-  (S.data?.assets || []).forEach(a => { if (a.ohlc?.length) add(`sov:${a.symbol}`, `${a.name} (engine price)`, "Gold & Bitcoin", "price", "Daily", a.price_source || "", () => ({ dates: a.ohlc.map(r => r[0]), values: a.ohlc.map(r => r[4]) })); });
+  (S.data?.assets || []).forEach(a => { if (a.ohlc?.length) add(`sov:${a.symbol}`, `${a.name} (engine price)`, "Gold & Bitcoin", "price", "Daily", a.price_source || "", () => ({ dates: a.ohlc.map(r => r[0]), values: a.ohlc.map(r => r[4]), o: a.ohlc.map(r => r[1]), h: a.ohlc.map(r => r[2]), l: a.ohlc.map(r => r[3]) })); });
   const nl = S.data?.macro?.NETLIQ; if (nl?.series) add("sov:NETLIQ", "US net liquidity (Fed assets − RRP − TGA, $bn)", "Liquidity", "$bn", "Weekly", "FRED (derived)", () => nl.series);
   const cname = k => (CTRY().find(c => c.key === k) || {}).name || k.toUpperCase();
   Object.entries(G.oecd?.countries || {}).forEach(([k, ms]) => Object.entries(ms).forEach(([m, r]) => r.series && add(`oecd:${k}:${m}`, `${cname(k)}: ${r.label}${r.transform ? " (" + r.transform.replace("Growth rate, over 1 year", "y/y %") + ")" : ""}`, "Countries — monthly", r.unit || "", "Monthly", r.source || "OECD", () => ({ dates: r.series.dates.map(mDate), values: r.series.values }))));
@@ -62,7 +63,7 @@ async function binance(sym) {
         if (k.length < 1000) break; start = k[k.length - 1][0] + 864e5;
       }
       if (!rows.length) throw new Error("no data");
-      return { dates: rows.map(k => new Date(k[0]).toISOString().slice(0, 10)), values: rows.map(k => +k[4]) };
+      return { dates: rows.map(k => new Date(k[0]).toISOString().slice(0, 10)), values: rows.map(k => +k[4]), o: rows.map(k => +k[1]), h: rows.map(k => +k[2]), l: rows.map(k => +k[3]) };
     } catch (e) { OV.err[sym] = e.message; }
   }
   throw new Error(`${pair} not found on Binance`);
@@ -72,34 +73,52 @@ async function getData(id) {
   let d;
   if (id.startsWith("bin:")) d = await binance(id.slice(4).toUpperCase());
   else { const c = find(id); if (!c) throw new Error("unknown series"); d = c.get(); }
-  const pairs = d.dates.map((t, i) => [mDate(t), d.values[i]]).filter(p => p[1] != null && isFinite(p[1])).sort((a, b) => a[0].localeCompare(b[0]));
+  const ohlc = d.o && d.h && d.l;
+  const pairs = d.dates.map((t, i) => [mDate(t), d.values[i], ohlc ? d.o[i] : null, ohlc ? d.h[i] : null, ohlc ? d.l[i] : null]).filter(p => p[1] != null && isFinite(p[1])).sort((a, b) => a[0].localeCompare(b[0]));
   const ded = []; pairs.forEach(p => { if (ded.length && ded[ded.length - 1][0] === p[0]) ded[ded.length - 1] = p; else ded.push(p); });
-  return (OV.cache[id] = { t: ded.map(p => p[0]), v: ded.map(p => p[1]) });
+  const out = { t: ded.map(p => p[0]), v: ded.map(p => p[1]) };
+  if (ohlc && ded.every(p => p[2] != null && p[3] != null && p[4] != null)) { out.o = ded.map(p => p[2]); out.h = ded.map(p => p[3]); out.l = ded.map(p => p[4]); }
+  return (OV.cache[id] = out);
 }
 
 /* ---------- maths ---------- */
 const startDate = () => { const y = RANGES.find(r => r[0] === OV.range)[1]; const d = new Date(); d.setUTCMonth(d.getUTCMonth() - Math.round(y * 12)); return d.toISOString().slice(0, 10); };
 const rateLike = c => /%|pp/.test(c.unit) || /rate|yield|spread|inflation|y\/y|growth|change/i.test(c.name);
-function transform(c, d, start) {
+// weekly bars are labelled with the Monday that starts the week; monthly bars with the 1st of the month
+const bucket = t => { if (OV.tf === "M") return t.slice(0, 7) + "-01"; if (OV.tf === "W") { const d = new Date(t + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); } return t; };
+function resample(d, c) {
+  if (OV.tf === "D") return d;
+  if (c && /Monthly|Quarterly|\?/.test(c.freq) || (c && c.freq === "Weekly" && OV.tf === "W")) return d;   // already at or below this frequency: keep real dates
+  const out = { t: [], v: [] }, has = !!d.o; if (has) { out.o = []; out.h = []; out.l = []; }
+  d.t.forEach((t, i) => { const k = bucket(t), n = out.t.length - 1;
+    if (n >= 0 && out.t[n] === k) { out.v[n] = d.v[i]; if (has) { out.h[n] = Math.max(out.h[n], d.h[i]); out.l[n] = Math.min(out.l[n], d.l[i]); } }
+    else { out.t.push(k); out.v.push(d.v[i]); if (has) { out.o.push(d.o[i]); out.h.push(d.h[i]); out.l.push(d.l[i]); } } });
+  return out;
+}
+function transform(c, d0, start) {
+  const d = resample(d0, c);
   let i0 = d.t.findIndex(t => t >= start); if (i0 < 0) return { t: [], v: [] };
   if (i0 > 0 && c.freq !== "Daily") i0--;      // keep the last low-frequency reading before the window
-  const t = d.t.slice(i0), v = d.v.slice(i0);
-  if (OV.mode === "own" || !v.length) return { t, v };
-  if (OV.mode === "z") { const m = v.reduce((a, b) => a + b, 0) / v.length, sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length) || 1; return { t, v: v.map(x => (x - m) / sd) }; }
-  const b = v[0];
-  if (OV.mode === "rebase") return rateLike(c) || b <= 0 ? { t, v: v.map(x => 100 + (x - b)), note: "pp" } : { t, v: v.map(x => x / b * 100) };
-  return rateLike(c) || b <= 0 ? { t, v: v.map(x => x - b), note: "pp" } : { t, v: v.map(x => (x / b - 1) * 100) };
+  const t = d.t.slice(i0), v = d.v.slice(i0), sl = a => a ? a.slice(i0) : null;
+  let f = x => x;
+  if (OV.mode === "z") { const m = v.reduce((a, b) => a + b, 0) / v.length, sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length) || 1; f = x => (x - m) / sd; }
+  else if (OV.mode !== "own" && v.length) { const b = v[0], pp = rateLike(c) || b <= 0;
+    f = OV.mode === "rebase" ? (pp ? x => 100 + (x - b) : x => x / b * 100) : (pp ? x => x - b : x => (x / b - 1) * 100); }
+  const r = { t, v: v.map(f) };
+  if (d.o) { r.o = sl(d.o).map(f); r.h = sl(d.h).map(f); r.l = sl(d.l).map(f); }
+  return r;
 }
 const at = (d, t) => { let lo = 0, hi = d.t.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (d.t[m] <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r; };
 function monthly(d, start) { const m = new Map(); d.t.forEach((t, i) => { if (t >= start) m.set(t.slice(0, 7), d.v[i]); }); return m; }
 function corr(a, b) { const n = a.length; if (n < 6) return null; const ma = a.reduce((x, y) => x + y) / n, mb = b.reduce((x, y) => x + y) / n; let sab = 0, sa = 0, sb = 0; for (let i = 0; i < n; i++) { sab += (a[i] - ma) * (b[i] - mb); sa += (a[i] - ma) ** 2; sb += (b[i] - mb) ** 2; } return sa && sb ? sab / Math.sqrt(sa * sb) : null; }
 
 /* ---------- state <-> URL ---------- */
-function save() { const p = `${OV.mode};${OV.range};${OV.log ? 1 : 0};${OV.list.map(x => x.id + (x.hidden ? "!" : "")).join(",")}`; history.replaceState(null, "", `#/tools/overlay/${encodeURIComponent(p)}`); try { localStorage.setItem("sov.overlay", p); } catch (e) { /* storage unavailable */ } }
+function save() { const p = `${OV.mode};${OV.range};${OV.log ? 1 : 0};${OV.list.map(x => x.id + (x.hidden ? "!" : "")).join(",")};${OV.tf};${OV.candles ? 1 : 0}`; history.replaceState(null, "", `#/tools/overlay/${encodeURIComponent(p)}`); try { localStorage.setItem("sov.overlay", p); } catch (e) { /* storage unavailable */ } }
 function restore(param) {
   let p = param; if (!p) { try { p = localStorage.getItem("sov.overlay"); } catch (e) { p = null; } }
-  if (!p) p = `own;5Y;0;${PRESETS[0][1]}`;
-  const [mode, range, log, ids] = p.split(";");
+  if (!p) p = `own;5Y;0;${PRESETS[0][1]};W;1`;
+  const [mode, range, log, ids, tf, candles] = p.split(";");
+  if (TFS.some(x => x[0] === tf)) OV.tf = tf; if (candles != null) OV.candles = candles === "1";
   if (MODES.some(m => m[0] === mode)) OV.mode = mode; if (RANGES.some(r => r[0] === range)) OV.range = range; OV.log = log === "1";
   OV.list = (ids || "").split(",").filter(Boolean).slice(0, MAX).map((x, i) => ({ id: x.replace("!", ""), hidden: x.endsWith("!"), color: COLORS[i % COLORS.length] }));
 }
@@ -129,7 +148,13 @@ async function draw() {
       if (it.hidden || !x.t.length) continue;
       let scale = "right";
       if (OV.mode === "own") { if (firstRight) { scale = "right"; firstRight = false; } else if (firstLeft) { scale = "left"; firstLeft = false; } else scale = "s" + i; }
-      const s = chart.addLineSeries({ color: it.color, lineWidth: i < 2 ? 2 : 1.5, lineStyle: i >= 7 ? 2 : 0, lineType: c.freq === "Daily" ? 0 : 1, priceScaleId: scale, priceLineVisible: false, lastValueVisible: OV.mode !== "own" || i < 2, title: "",
+      if (OV.candles && x.o && !shown.some(z => z.candle)) {
+        const s = chart.addCandlestickSeries({ priceScaleId: scale, upColor: C.bull, downColor: C.bear, borderVisible: false, wickUpColor: C.bull, wickDownColor: C.bear, priceLineVisible: false });
+        if (scale.startsWith("s")) chart.priceScale(scale).applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 }, visible: false });
+        s.setData(x.t.map((t, k) => ({ time: t, open: x.o[k], high: x.h[k], low: x.l[k], close: x.v[k] })));
+        shown.push({ it, c, s, x, candle: true }); continue;
+      }
+      const s = chart.addLineSeries({ color: it.color, lineWidth: i < 2 ? 2 : 1.5, lineStyle: i >= 7 ? 2 : 0, lineType: c.freq === "Daily" || (OV.tf === "W" && c.freq === "Weekly") ? 0 : 1, priceScaleId: scale, priceLineVisible: false, lastValueVisible: OV.mode !== "own" || i < 2, title: "",
         priceFormat: { type: "price", precision: Math.abs(x.v[x.v.length - 1]) < 1 ? 4 : 2, minMove: Math.abs(x.v[x.v.length - 1]) < 1 ? 0.0001 : 0.01 } });
       if (scale.startsWith("s")) chart.priceScale(scale).applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 }, visible: false });
       s.setData(x.t.map((t, k) => ({ time: t, value: x.v[k] })));
@@ -138,7 +163,8 @@ async function draw() {
   }
   chart.timeScale().fitContent();
   const leg = document.getElementById("ov-legend");
-  const legend = t => { if (!leg) return; leg.innerHTML = shown.map(({ it, c }) => { const k = at(it.raw, t || it.raw.t[it.raw.t.length - 1]); return `<span class="ov-l"><span class="sw" style="background:${it.color}"></span>${esc(c.name)}: <b class="num">${k >= 0 ? fmtV(it.raw.v[k], c) : "—"}</b> <span class="dim sm">${k >= 0 ? it.raw.t[k] : ""}</span></span>`; }).join("") + (t ? `<span class="dim sm">at ${t}</span>` : ""); };
+  const legend = t => { if (!leg) return; leg.innerHTML = shown.map(({ it, c }) => { const rs = resample(it.raw, c), k = at(rs, t || rs.t[rs.t.length - 1]), ohl = !!(rs.o && k >= 0);
+      return `<span class="ov-l"><span class="sw" style="background:${it.color}"></span>${esc(c.name)}: ${ohl ? `<span class="sm dim">O</span> ${fmtV(rs.o[k])} <span class="sm dim">H</span> ${fmtV(rs.h[k])} <span class="sm dim">L</span> ${fmtV(rs.l[k])} <span class="sm dim">C</span> ` : ""}<b class="num">${k >= 0 ? fmtV(rs.v[k], c) : "—"}</b> <span class="dim sm">${k >= 0 ? (OV.tf === "W" && c.freq === "Daily" ? "week of " : "") + rs.t[k] : ""}</span></span>`; }).join("") + (t ? `<span class="dim sm">at ${t}</span>` : ""); };
   legend(null);
   chart.subscribeCrosshairMove(p => { const t = p?.time; legend(t ? (typeof t === "string" ? t : typeof t === "object" ? `${t.year}-${String(t.month).padStart(2, "0")}-${String(t.day).padStart(2, "0")}` : new Date(t * 1000).toISOString().slice(0, 10)) : null); });
   drawCorr(shown, start);
@@ -195,6 +221,8 @@ function bindSearch() {
   document.querySelectorAll("[data-ovm]").forEach(b => b.onclick = () => { OV.mode = b.dataset.ovm; document.querySelectorAll("[data-ovm]").forEach(x => x.classList.toggle("on", x === b)); save(); draw(); });
   document.querySelectorAll("[data-ovr]").forEach(b => b.onclick = () => { OV.range = b.dataset.ovr; document.querySelectorAll("[data-ovr]").forEach(x => x.classList.toggle("on", x === b)); save(); draw(); });
   document.getElementById("ov-log").onchange = e => { OV.log = e.target.checked; save(); draw(); };
+  document.getElementById("ov-candles").onchange = e => { OV.candles = e.target.checked; save(); draw(); };
+  document.querySelectorAll("[data-ovt]").forEach(b => b.onclick = () => { OV.tf = b.dataset.ovt; document.querySelectorAll("[data-ovt]").forEach(x => x.classList.toggle("on", x === b)); save(); draw(); });
   document.querySelectorAll("[data-ovk]").forEach(b => b.onclick = () => { OV.corr = b.dataset.ovk; document.querySelectorAll("[data-ovk]").forEach(x => x.classList.toggle("on", x === b)); draw(); });
   document.getElementById("ov-copy").onclick = () => { try { navigator.clipboard.writeText(location.href); alertMsg("Link copied. It reopens this exact chart."); } catch (e) { alertMsg(location.href); } };
 }
@@ -211,6 +239,8 @@ PAGES["tools/overlay"] = pg => {
    #ov-res{max-height:420px;overflow:auto}#ov-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0 8px;font-size:12px}.ov-l .sw{margin-right:5px}
    .ov-in{background:#0f1114;border:1px solid #2a2e35;color:inherit;padding:7px 9px;border-radius:4px;font:inherit;width:100%}</style>` +
   panel("", `<div class="ov-bar">${MODES.map(([k, l]) => `<button class="btn sm${OV.mode === k ? " on" : ""}" data-ovm="${k}">${l}</button>`).join("")}</div>
+     <div class="ov-bar"><span class="sm dim">Timeframe:</span>${TFS.map(([k, l]) => `<button class="btn sm${OV.tf === k ? " on" : ""}" data-ovt="${k}">${l}</button>`).join("")}
+       <label class="sm" style="margin-left:8px"><input type="checkbox" id="ov-candles" ${OV.candles ? "checked" : ""}> Candles for the first coin or price with open/high/low data</label></div>
      <div class="ov-bar">${RANGES.map(([k]) => `<button class="btn sm${OV.range === k ? " on" : ""}" data-ovr="${k}">${k}</button>`).join("")}
        <label class="sm" style="margin-left:8px"><input type="checkbox" id="ov-log" ${OV.log ? "checked" : ""}> Log scale (rebased mode)</label>
        <button class="btn sm" id="ov-copy" style="margin-left:auto">Copy link to this chart</button></div>
@@ -220,6 +250,6 @@ PAGES["tools/overlay"] = pg => {
         <div class="ov-bar">${CRYPTO_QUICK.slice(0, 10).map(c => `<button class="btn sm" data-ovq="${c}">${c}</button>`).join("")}</div>
         <input class="ov-in" id="ov-q" placeholder="Search: gold, nasdaq, CPI, unemployment, fed funds, M2, yen, copper, Japan inflation…"><div id="ov-res"></div>`)}</div>` +
   panel("How the selected series move together", `<div class="ov-bar"><button class="btn sm${OV.corr === "chg" ? " on" : ""}" data-ovk="chg">Monthly changes</button><button class="btn sm${OV.corr === "lvl" ? " on" : ""}" data-ovk="lvl">Levels</button></div><div id="ov-corr"></div>`) +
-  `<p class="sm dim">Sources: Yahoo Finance (10 years of daily prices), FRED (US macro back to 1990), OECD, BIS and IMF (country data, monthly and quarterly), Binance (crypto, loaded live in your browser from 2017). Lower-frequency data is drawn as steps: a monthly figure holds until the next release. Nothing is interpolated.</p>`;
+  `<p class="sm dim">Sources: Yahoo Finance (10 years of daily prices), FRED (US macro back to 1990), OECD, BIS and IMF (country data, monthly and quarterly), Binance (crypto, loaded live in your browser from 2017). Weekly and monthly views use the last value of each period (candles use that period's open, high, low and close); weekly bars are dated by the Monday that starts the week. Lower-frequency data is drawn as steps: a monthly figure holds until the next release. Nothing is interpolated.</p>`;
 };
 })();
