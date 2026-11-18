@@ -68,7 +68,7 @@ def volatility(close: pd.Series, ann: int) -> dict:
             "vol30_pct_rank": round(float((hist <= v30.iloc[-1]).mean() * 100), 0),
             "dates": [d.strftime("%Y-%m-%d") for d in v30.index[-500:]],
             "values": [round(float(x), 2) for x in v30.tail(500)],
-            "max_drawdown_1y": round(float((close.tail(365) / close.tail(365).cummax() - 1).min() * 100), 1)}
+            "max_drawdown_1y": (lambda y: round(float((y / y.cummax() - 1).min() * 100), 1))(close[close.index > close.index[-1] - pd.Timedelta(days=365)])}
 
 
 def regimes(close: pd.Series) -> dict:
@@ -77,7 +77,8 @@ def regimes(close: pd.Series) -> dict:
     c = close.dropna()
     sma = c.rolling(200, min_periods=180).mean()
     vol = c.pct_change().rolling(30).std()
-    vmed = vol.rolling(365, min_periods=200).median()
+    ppy_ = 365 if (vol.index.dayofweek >= 5).any() else 252
+    vmed = vol.rolling(ppy_, min_periods=int(ppy_ * 0.55)).median()
     df = pd.DataFrame({"c": c, "up": c > sma, "hv": vol > vmed}).dropna()
     df = df[sma.reindex(df.index).notna() & vmed.reindex(df.index).notna()]
     if df.empty:

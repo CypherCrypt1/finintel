@@ -32,7 +32,7 @@ def _cluster(points: list, tol: float) -> list:
 def key_levels(df: pd.DataFrame, n: int = 2) -> dict:
     last = float(df.close.iloc[-1])
     vol = df.close.pct_change().tail(60).std() or 0.01
-    yr = df.tail(365)
+    yr = df[df.index > df.index[-1] - pd.Timedelta(days=365)]   # calendar year, whatever the trading days
     highs, lows = swing_points(df)
     zones = _cluster(highs + lows, tol=max(vol, 0.004))
     sup = sorted([z for z in zones if z[1] < last], key=lambda z: -z[1])[:n]

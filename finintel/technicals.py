@@ -31,7 +31,8 @@ def indicators(df: pd.DataFrame, fast: int = 50, slow: int = 200) -> pd.DataFram
     out["atr"] = tr.ewm(alpha=1 / 14, adjust=False).mean()
     mid, sd = c.rolling(20).mean(), c.rolling(20).std()
     out["bb_up"], out["bb_lo"] = mid + 2 * sd, mid - 2 * sd
-    out["vol30"] = c.pct_change().rolling(30).std() * np.sqrt(365) * 100
+    ppy = 365 if (c.index.dayofweek >= 5).any() else 252   # crypto trades every day, futures on weekdays
+    out["vol30"] = c.pct_change().rolling(30).std() * np.sqrt(ppy) * 100
     if "volume" in df and df.volume.sum() > 0:
         out["volume"] = df.volume
         out["vol_ratio"] = df.volume / df.volume.rolling(20).mean()
