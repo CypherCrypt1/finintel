@@ -63,6 +63,23 @@ def yahoo(symbol: str, rng: str = "2y") -> pd.Series:
     raise ConnectorError(f"Yahoo {symbol}: {last}")
 
 
+def yahoo_ohlc(symbol: str, rng: str = "10y") -> pd.DataFrame:
+    """Daily open/high/low/close/volume from Yahoo's chart API."""
+    last = None
+    for host in ("query1", "query2"):
+        try:
+            j = get(f"https://{host}.finance.yahoo.com/v8/finance/chart/{requests.utils.quote(symbol)}",
+                    {"range": rng, "interval": "1d", "includePrePost": "false"}).json()
+            res = j["chart"]["result"][0]
+            q = res["indicators"]["quote"][0]
+            df = pd.DataFrame({k: q.get(k) for k in ("open", "high", "low", "close", "volume")}, index=pd.to_datetime(res["timestamp"], unit="s").normalize())
+            df = df.dropna(subset=["open", "high", "low", "close"])
+            return df[~df.index.duplicated(keep="last")]
+        except Exception as e:
+            last = e
+    raise ConnectorError(f"Yahoo OHLC {symbol}: {last}")
+
+
 def perf(s: pd.Series) -> dict:
     s = s.dropna()
     last, t = float(s.iloc[-1]), s.index[-1]

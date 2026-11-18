@@ -59,6 +59,11 @@ FRED_OVERLAY = [
 ]
 
 
+# tickers stored with full candles (others keep closes only, to keep the file small)
+OHLC_TICKERS = {"GC=F", "SI=F", "CL=F", "BZ=F", "HG=F", "NG=F", "^GSPC", "^NDX", "^DJI", "^RUT", "^GDAXI", "^FTSE", "^N225", "^HSI",
+                "DX-Y.NYB", "EURUSD=X", "JPY=X", "USDJPY=X"} | {t for _, _, t, _ in EXTRA_TICKERS}
+
+
 def _ser(s: pd.Series, nd=4) -> dict:
     s = s.dropna()
     return {"dates": [d.strftime("%Y-%m-%d") for d in s.index], "values": [round(float(v), nd) for v in s.values]}
@@ -104,7 +109,17 @@ def build_overlay(px: dict | None, prev_path: str | None = None, offline: bool =
         if s is None or len(s) < 30 or t not in meta:
             continue
         k, n, grp = meta[t]
-        out["series"][f"mkt:{k}"] = {"name": n, "group": grp, "unit": "price", "freq": "Daily", "source": f"Yahoo Finance ({t})", **_ser(s, 4)}
+        rec = {"name": n, "group": grp, "unit": "price", "freq": "Daily", "source": f"Yahoo Finance ({t})", **_ser(s, 4)}
+        if t in OHLC_TICKERS and not offline:
+            try:
+                df = D.yahoo_ohlc(t, "10y")
+                if len(df) > 30:
+                    rec.update({"dates": [d.strftime("%Y-%m-%d") for d in df.index], "values": [round(float(v), 4) for v in df.close],
+                                "o": [round(float(v), 4) for v in df.open], "h": [round(float(v), 4) for v in df.high], "l": [round(float(v), 4) for v in df.low]})
+                time.sleep(0.15)
+            except Exception as e:  # noqa: BLE001
+                print(f"[overlay] OHLC {t}: {e}", flush=True)
+        out["series"][f"mkt:{k}"] = rec
     # currencies: value of one unit in USD terms (higher = currency stronger)
     for fx in G.FX:
         code, t = fx[0], fx[1]
