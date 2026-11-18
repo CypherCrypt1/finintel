@@ -316,6 +316,9 @@ def main(argv=None):
         ix = site / "index.html"
         ver = str(int(_time.time()))
         ix.write_text(_re.sub(r'((?:src|href)="(?:app|pages|global|overlay)\.js|href="styles\.css)"', lambda m: m.group(1) + f'?v={ver}"', ix.read_text()))
+        # self-update: the page compares its build number with version.txt (never cached) and reloads if a newer build is live
+        ix.write_text(ix.read_text().replace("<head>", f'<head>\n<script>window.SOV_VER="{ver}";fetch("version.txt?"+Date.now(),{{cache:"no-store"}}).then(r=>r.ok?r.text():"").then(v=>{{v=v.trim();if(v&&v!==window.SOV_VER&&sessionStorage.getItem("sov.reloaded")!==v){{sessionStorage.setItem("sov.reloaded",v);location.replace(location.pathname+"?v="+v+location.hash);}}}}).catch(()=>{{}});</script>', 1))
+        (site / "version.txt").write_text(ver)
     if ref_dir.exists():
         shutil.copytree(ref_dir, site / "reference", dirs_exist_ok=True)
     (site / "data").mkdir(exist_ok=True)
