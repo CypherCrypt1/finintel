@@ -163,10 +163,10 @@ async function draw() {
       if (o.pane === 0) { scaleId = leftUsed ? "ov" + i : "left"; leftUsed = true; }
       else { const firstInPane = !shown.some(s => s.o.pane === o.pane); scaleId = firstInPane ? "right" : "ov" + i; }
       const s = chart.addSeries(LW.LineSeries, { color: o.color, lineWidth: 2, lineType: c.freq === "Daily" || (c.freq === "Weekly" && OV.tf !== "D") ? 0 : 1, priceScaleId: scaleId, priceFormat: pfmt(d.v[d.v.length - 1]),
-        lastValueVisible: scaleId === "left" || scaleId === "right", priceLineVisible: false, title: "" }, o.pane);
+        lastValueVisible: false, priceLineVisible: false, title: "" }, o.pane);
       if (scaleId.startsWith("ov")) chart.priceScale(scaleId, o.pane).applyOptions({ visible: false, scaleMargins: { top: 0.1, bottom: 0.1 } });
       s.setData(d.t.map((t, k) => ({ time: t, value: d.v[k] })));
-      shown.push({ o, c, s });
+      shown.push({ o, c, s, scaleId });
     } catch (e) { o.status = e.message; listStatus(o); }
   }
   const ps = chart.panes(); ps.forEach((p, i) => { try { p.setStretchFactor(i === 0 ? 3.5 : 1); } catch (e) { /* older API */ } });
@@ -186,6 +186,27 @@ async function draw() {
       return `<span class="cl-li"><span class="sw" style="background:${o.color}"></span>${esc(c.name)} <b class="num">${k >= 0 ? fmtP(o.d.v[k]) : "—"}</b><span class="dim sm"> ${k >= 0 ? o.d.t[k] : ""}</span></span>`; }).join("") + `</div>`).join("");
   };
   setTimeout(() => legend(null), 50);
+  // coloured last-price tags for overlays whose own scale is hidden (the axis already labels the others)
+  const tagBox = document.getElementById("cl-tags");
+  const placeTags = () => {
+    if (!tagBox || OV.chart !== chart) return;
+    const tops = []; let y = 0; chart.panes().forEach((p, i) => { tops[i] = y; y += p.getHeight() + 1; });
+    let lw = 0, rw = 0; try { lw = chart.priceScale("left").width(); } catch (e) { /* none */ } try { rw = chart.priceScale("right").width(); } catch (e) { /* none */ }
+    const W = el.clientWidth;
+    const tags = shown.map(({ o, s }) => { const last = o.d.v[o.d.v.length - 1], yy = s.priceToCoordinate(last), ph = chart.panes()[o.pane]?.getHeight() || 0;
+      if (yy == null || yy < -9 || yy > ph + 9) return null;
+      return { o, last, side: o.pane === 0 && lw > 0 ? "L" : "R", pane: o.pane, y: Math.max(0, Math.min(ph - 18, yy - 9)), ph }; }).filter(Boolean);
+    // stack tags that would overlap (same pane and side), keeping their order by price
+    const groups = {}; tags.forEach(t => (groups[t.pane + t.side] = groups[t.pane + t.side] || []).push(t));
+    if (md && md.t.length && main) { const yy = main.priceToCoordinate(md.v[md.v.length - 1]); if (yy != null) (groups["0R"] = groups["0R"] || []).push({ fixed: true, y: yy - 9 }); }
+    Object.values(groups).forEach(g => { g.sort((a, b) => a.y - b.y); for (let i = 1; i < g.length; i++) if (g[i].y < g[i - 1].y + 19) { if (g[i].fixed) { g[i - 1].y = g[i].y - 19; for (let j = i - 1; j > 0; j--) if (g[j - 1].y > g[j].y - 19) g[j - 1].y = g[j].y - 19; } else g[i].y = g[i - 1].y + 19; } });
+    tagBox.innerHTML = tags.map(t => `<div class="cl-tag" style="top:${tops[t.pane] + t.y}px;${t.side === "L" ? `left:0;width:${lw}px` : `left:${W - rw}px;width:${rw}px`};background:${t.o.color}" title="${esc(t.o.c?.name || "")}">${fmtP(t.last)}</div>`).join("");
+  };
+  setTimeout(placeTags, 80);
+  chart.timeScale().subscribeVisibleLogicalRangeChange(() => requestAnimationFrame(placeTags));
+  chart.subscribeCrosshairMove(() => requestAnimationFrame(placeTags));
+  if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(placeTags)).observe(el);
+  el.addEventListener("mouseup", () => setTimeout(placeTags, 30));
   chart.subscribeCrosshairMove(p => { const t = p?.time; legend(!t ? null : typeof t === "string" ? t : typeof t === "object" ? `${t.year}-${String(t.month).padStart(2, "0")}-${String(t.day).padStart(2, "0")}` : new Date(t * 1000).toISOString().slice(0, 10)); });
   drawCorr(md, mc, shown);
 }
@@ -272,6 +293,7 @@ PAGES["tools/overlay"] = pg => {
    #cl-wrap{position:relative;border:1px solid #23272e;border-radius:0 0 6px 6px;overflow:hidden;background:#0d0f12}
    #cl-legend{position:absolute;left:10px;top:8px;z-index:3;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;pointer-events:none;font-variant-numeric:tabular-nums}
    #cl-legend b{font-weight:500}.cl-sym{font-weight:600;color:#e8e9eb;font-size:14px}
+   #cl-tags{position:absolute;inset:0;z-index:4;pointer-events:none}.cl-tag{position:absolute;height:18px;line-height:18px;font-size:11px;color:#fff;text-align:center;border-radius:2px;font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap}
    #cl-ovleg{position:absolute;inset:0;z-index:3;font-size:12px;pointer-events:none}.cl-lp{position:absolute;display:flex;flex-direction:column;gap:2px;background:rgba(13,15,18,.6);padding:2px 4px;border-radius:3px}.cl-li .sw{margin-right:4px}
    .cl-row{display:grid;grid-template-columns:26px 1fr auto auto auto;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid #1d2026}.cl-row.off{opacity:.45}
    .cl-row input[type=color]{width:22px;height:22px;border:0;background:none;padding:0;cursor:pointer}
@@ -284,7 +306,7 @@ PAGES["tools/overlay"] = pg => {
      ${RANGES.map(([k]) => b("clr", k, OV.range, k)).join("")}<span class="cl-sep"></span>${b("cly", "candles", OV.type, "Candles")}${b("cly", "line", OV.type, "Line")}
      <label class="sm"><input type="checkbox" id="cl-log" ${OV.log ? "checked" : ""}> Log</label><label class="sm"><input type="checkbox" id="cl-vol" ${OV.vol ? "checked" : ""}> Volume</label>
      <button class="btn sm" id="cl-copy" style="margin-left:auto">Copy link</button></div>
-   <div id="cl-wrap"><div id="cl-legend"></div><div id="cl-ovleg"></div><div id="cl-chart" style="height:520px"></div></div>
+   <div id="cl-wrap"><div id="cl-legend"></div><div id="cl-ovleg"></div><div id="cl-tags"></div><div id="cl-chart" style="height:520px"></div></div>
    <div class="sm" id="cl-msg" style="color:${C.gold};min-height:18px;margin:4px 0"></div>
    <div class="g g2">${panel(`Overlays <span class="dim sm" id="cl-count"></span>`, `<div id="cl-list"></div><div style="margin-top:8px"><button class="btn sm" id="cl-clear">Remove all overlays</button></div>`)}
      ${panel("Symbols and data", `<div class="sm dim" style="margin-bottom:4px">Any coin on Binance</div><div style="display:flex;gap:6px;margin-bottom:6px"><input class="cl-in" id="cl-coin" placeholder="e.g. ETH, SOL, PEPE, ETHBTC"><button class="btn" id="cl-coin-main">Chart it</button><button class="btn" id="cl-coin-ov">Overlay</button></div>
