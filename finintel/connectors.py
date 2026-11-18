@@ -122,7 +122,7 @@ BINANCE_HOSTS = ["https://api.binance.com", "https://data-api.binance.vision"]
 
 
 def binance_daily(symbol: str, days: int = 1000) -> pd.DataFrame:
-    """Daily OHLCV. PAXGUSDT is used as a gold proxy (1 PAXG = 1 troy oz, LBMA gold)."""
+    """Daily OHLCV from Binance (used for BTC)."""
     last_err = None
     for host in BINANCE_HOSTS:
         try:
@@ -259,7 +259,11 @@ class SeriesLoader:
 
     def price(self, asset: str) -> pd.DataFrame:
         if asset not in self.prices:
-            self.prices[asset] = binance_daily({"XAU": "PAXGUSDT", "BTC": "BTCUSDT"}[asset])
+            if asset == "XAU":   # COMEX gold futures, front month (the same contract as TradingView's GC1!)
+                from .global_data import yahoo_ohlc
+                self.prices[asset] = yahoo_ohlc("GC=F", "5y")
+            else:
+                self.prices[asset] = binance_daily("BTCUSDT")
         return self.prices[asset]
 
     def load(self, sid: str) -> pd.Series | None:

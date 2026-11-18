@@ -26,7 +26,7 @@ INDICES = [
     ("sxxp", "STOXX Europe 600", "^STOXX", "Europe", None, "EUR"), ("dax", "DAX 40", "^GDAXI", "Europe", "de", "EUR"),
     ("cac", "CAC 40", "^FCHI", "Europe", "fr", "EUR"), ("ftse", "FTSE 100", "^FTSE", "Europe", "gb", "GBP"),
     ("smi", "SMI", "^SSMI", "Europe", "ch", "CHF"), ("moex", "MOEX Russia", "IMOEX.ME", "Europe", "ru", "RUB"),
-    ("n225", "Nikkei 225", "^N225", "Asia-Pacific", "jp", "JPY"), ("topix", "TOPIX (via TOPIX ETF 1306.T, proxy)", "1306.T", "Asia-Pacific", "jp", "JPY"),
+    ("n225", "Nikkei 225", "^N225", "Asia-Pacific", "jp", "JPY"), ("topix", "TOPIX", None, "Asia-Pacific", "jp", "JPY"),
     ("shcomp", "Shanghai Composite", "000001.SS", "Asia-Pacific", "cn", "CNY"), ("csi300", "CSI 300", "000300.SS", "Asia-Pacific", "cn", "CNY"),
     ("hsi", "Hang Seng", "^HSI", "Asia-Pacific", None, "HKD"), ("nifty", "Nifty 50", "^NSEI", "Asia-Pacific", "in", "INR"),
     ("sensex", "BSE Sensex", "^BSESN", "Asia-Pacific", "in", "INR"), ("kospi", "KOSPI", "^KS11", "Asia-Pacific", None, "KRW"),
@@ -121,8 +121,7 @@ CORPORATE_SOURCES = {
 
 
 # if an index fails on Yahoo, try a fund that tracks it (labelled as a proxy on the site)
-TICKER_FALLBACK = {"000300.SS": ("510300.SS", "Huatai-PineBridge CSI 300 ETF"), "^N225": ("1321.T", "Nomura Nikkei 225 ETF"),
-                   "000001.SS": ("510210.SS", "SSE Composite ETF")}
+TICKER_FALLBACK: dict = {}   # no substitutes: an index without its own feed is shown as unavailable
 
 # US sector ETFs (SPDR Select Sector) for sector intelligence; prices from Yahoo Finance
 SECTORS = [("xlk", "Information technology", "XLK"), ("xlf", "Financials", "XLF"), ("xlv", "Health care", "XLV"),

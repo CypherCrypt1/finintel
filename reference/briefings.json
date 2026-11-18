@@ -1,12 +1,4 @@
-{"items": [
-  {"date": "2026-11-17", "title": "Gold: strong official demand, losing to rates and the dollar", "author": "Analyst note (AI interpretation)",
-   "body": ["Central banks bought 321 t in Q3 2026, the most since Q4 2024, and global ETF holdings reached a record 4,275 t in October.",
-            "Against that, the 10-year real yield is near 18-year highs, a December Fed hike is fully priced and the dollar is at an 18-month high.",
-            "Price broke below $3,900 on 12 Nov to its lowest level since October 2025. The long-term case depends on official buying continuing while the hiking cycle ends."],
-   "sources": [["WGC GDT Q3 2026", "https://www.gold.org/download/file/21338/Executive-summary.pdf"], ["BabyPips, 13 Nov 2026", "https://www.babypips.com/analysis/headline-gold-takes-hit-yields-rise-2026-11-13"]]},
-  {"date": "2026-11-17", "title": "Bitcoin: ETF selling overwhelms on-chain value", "author": "Analyst note (AI interpretation)",
-   "body": ["US spot ETFs lost $1.28bn in the week of 2–6 Nov, about 5x the Bitcoin mined that week, and 2026 net flows turned negative.",
-            "MVRV is low by its own 3-year history, so valuation is not stretched, and corporate treasuries are still buying.",
-            "Price lost its 200-day average on 12 Nov and $70,000 on 13 Nov. Flows, not valuation, decide the next few weeks."],
-   "sources": [["The Block, 7 Nov 2026", "https://theblock.co/news/markets/2026-11-07-bitcoin-etfs-flip-negative-for-2026-after-1-28-billion-outflow-week-worst-since-june-435984"], ["The Motley Fool, 13 Nov 2026", "https://www.fool.com/investing/2026/11/13/why-bitcoin-is-falling-today/"]]}
- ]}
+{
+ "items": [],
+ "note": "Written briefings removed: they were AI-written interpretations, not data."
+}

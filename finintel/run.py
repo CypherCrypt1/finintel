@@ -230,7 +230,7 @@ def main(argv=None):
         sid_map = {d["key"]: d["series"] for d in drivers}
         asset = dict(
             symbol=sym, name=ASSET_NAMES[sym], performance=perf, levels=levels, technicals=tech,
-            price_source="Binance PAXG/USDT (1 token = 1 troy oz of London Good Delivery gold)" if sym == "XAU" else "Binance BTC/USDT",
+            price_source="COMEX gold futures, front month, US$/oz (Yahoo Finance GC=F)" if sym == "XAU" else "Binance BTC/USDT",
             ohlc=ohlc(px), drivers=drivers_out, decision=dec,
             composite={hz: vars(score(readings, hz)) for hz in HORIZONS},
             contradictions=contradictions(readings, dec["medium"]["combined"] / 50 if dec["medium"]["combined"] is not None else None),

@@ -26,6 +26,7 @@ def fake(monkeypatch):
 
 def install_fakes(monkeypatch):
     monkeypatch.setattr(D, "yahoo", lambda sym, rng="2y": walk(start=1.1 if "=X" in sym else 100))
+    monkeypatch.setattr(D, "yahoo_ohlc", lambda sym, rng="10y": (lambda x: pd.DataFrame({"open": x, "high": x * 1.01, "low": x * 0.99, "close": x, "volume": 1000.0}))(walk(start=100)))
     def wb(code, iso):
         rows = [(i, y, float(RNG.normal(2, 1)) * (1e11 if "CD" in code else 1)) for i in iso for y in range(2005, 2025)]
         return pd.DataFrame(rows, columns=["iso3", "year", "value"]), {"published": "2026-10-28"}

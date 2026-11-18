@@ -1,24 +1,76 @@
-{"wgc_q3_2026": {"period": "Q3 2026 (Jul–Sep)", "published": "2026-11-03", "class": "Estimate (WGC / Metals Focus)",
-   "rows": [
-     ["Total demand incl. OTC", "1,369 t", "−1% y/y; value US$188bn (+22% y/y)"],
-     ["Year-to-date demand (Q1–Q3)", "3,881 t", "virtually matches the 2025 record of 3,884 t; value a record US$566bn"],
-     ["Central bank net purchases", "321 t", "+42% y/y; most since Q4 2024; year to date 675 t (+6% y/y)"],
-     ["Investment demand excl. OTC", "479 t", "−14% y/y against a very strong Q3 2025"],
-     ["Global gold ETFs (Q3 flows)", "211 t", "record US$31bn quarterly inflow"],
-     ["India bar and coin", "55 t", "−40% y/y; +9% q/q"],
-     ["Average gold price in the quarter", "US$4,262/oz", ""]],
-   "sources": [["WGC Gold Demand Trends Q3 2026, executive summary", "https://www.gold.org/download/file/21338/Executive-summary.pdf"],
-               ["WGC press release, 3 Nov 2026", "https://www.gold.org/news-and-events/press-releases/central-bank-buying-and-etf-inflows-support-gold-demand-q3/"],
-               ["WGC GDT Q3 2026: Investment", "https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q3-2026/investment"],
-               ["SMM / WGC monthly ETF commentary, Oct 2026", "https://news.metal.com/newscontent/104151298-positive-etf-gold-flows-pushed-holdings-to-a-new-record-in-september"]]},
- "central_banks_q3_2026": {"rows": [["People's Bank of China", "+63 t in Q3", "eighth straight quarter of reported buying"],
-                                    ["National Bank of Poland", "+40 t in Q3", ""],
-                                    ["China + Poland share of reported net buying", "about 86%", ""]],
-   "sources": [["GoldInvest summary of WGC Q3 2026", "https://goldinvest.de/en/world-gold-council-gold-demand-near-record-levels-central-banks-buy-321-tonnes-etfs-boom"],
-               ["WGC GDT Q3 2026: Investment", "https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q3-2026/investment"]]},
- "etf_monthly": {"class": "Fact (WGC, Bloomberg, company filings)",
-   "rows": [["2026-09", "+67.3 t", "≈ US$10bn", "holdings 4,256 t (record)"],
-            ["2026-10", "+19 t", "US$2.7bn", "holdings 4,275 t (record); Europe +13.1 t, North America outflows"]],
-   "sources": [["Kitco / WGC, 12 Oct 2026", "https://www.kitco.com/news/article/2026-10-12/gold-etf-demand-defies-rising-bond-yields-investors-pour-31-billion-record"],
-               ["FXStreet / WGC, 8 Nov 2026", "https://www.fxstreet.com/analysis/etf-gold-flows-slow-in-october-but-remain-positive-202611082140"]]},
- "positioning_note": "CFTC managed money positioning is collected live every week (see Gold Fundamentals)."}
+{
+ "wgc_q3_2026": {
+  "period": "Q3 2026 (Jul–Sep)",
+  "published": "2026-11-03",
+  "class": "Estimate (WGC / Metals Focus)",
+  "rows": [
+   [
+    "Total demand incl. OTC",
+    "1,369 t",
+    "−1% y/y; value US$188bn (+22% y/y)"
+   ],
+   [
+    "Year-to-date demand (Q1–Q3)",
+    "3,881 t",
+    "2025 same period: 3,884 t (record); y-t-d value US$566bn"
+   ],
+   [
+    "Central bank net purchases",
+    "321 t",
+    "+42% y/y; y-t-d 675 t (+6% y/y); officially reported: 120 t"
+   ],
+   [
+    "Investment demand excl. OTC",
+    "479 t",
+    "−14% y/y"
+   ],
+   [
+    "Global gold ETFs (Q3 flows)",
+    "+211 t",
+    ""
+   ],
+   [
+    "Average LBMA gold price in the quarter",
+    "US$4,262/oz",
+    "+23% y/y"
+   ]
+  ],
+  "sources": [
+   [
+    "WGC Gold Demand Trends Q3 2026 (executive summary)",
+    "https://www.gold.org/download/file/21338/Executive-summary.pdf"
+   ],
+   [
+    "WGC press release, 3 Nov 2026",
+    "https://www.gold.org/news-and-events/press-releases/central-bank-buying-and-etf-inflows-support-gold-demand-q3/"
+   ],
+   [
+    "WGC GDT Q3 2026: Central Banks",
+    "https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q3-2026/central-banks"
+   ]
+  ],
+  "verified": "2026-11-18: each figure checked against the WGC's own publications"
+ },
+ "central_banks_q3_2026": {
+  "rows": [],
+  "sources": [
+   [
+    "WGC GDT Q3 2026: Central Banks",
+    "https://www.gold.org/goldhub/research/gold-demand-trends/gold-demand-trends-q3-2026/central-banks"
+   ]
+  ],
+  "note": "Country-level purchases removed until checked against the WGC's own tables; see the IMF-reported reserves table for monthly official holdings."
+ },
+ "etf_monthly": {
+  "class": "",
+  "rows": [],
+  "sources": [
+   [
+    "WGC gold ETF flows (monthly)",
+    "https://www.gold.org/goldhub/data/gold-etfs-holdings-and-flows"
+   ]
+  ],
+  "note": "Removed until checked against the WGC's own monthly release."
+ },
+ "positioning_note": "CFTC managed money positioning is collected live every week (see Gold Fundamentals)."
+}

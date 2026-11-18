@@ -318,7 +318,9 @@ def _multpl(path: str) -> pd.Series:
     for d, v in rows:
         m = re.search(r"(-?\d+(?:\.\d+)?)", re.sub(r"<[^>]+>|&#x?\w+;", " ", v))
         if m:
-            vals[pd.Timestamp(datetime.strptime(d, "%b %d, %Y"))] = float(m.group(1))
+            dt = datetime.strptime(d, "%b %d, %Y")
+            if dt.day == 1:   # completed months only; the current month's row is a live estimate
+                vals[pd.Timestamp(dt)] = float(m.group(1))
     if len(vals) < 24:
         raise RuntimeError(f"multpl {path}: parsed {len(vals)} rows")
     return pd.Series(vals).sort_index()

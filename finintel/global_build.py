@@ -21,7 +21,7 @@ YEAR = NOW.year
 class Collector:
     def __init__(self, store, offline=False):
         self.store, self.offline, self.errors, self.saved = store, offline, {}, []
-        self.fails, self.t0, self.proxied = {}, time.time(), {}
+        self.fails, self.t0, self.proxied, self.thin = {}, time.time(), {}, {}
 
     def keep(self, sid, s: pd.Series):
         if s is not None and not s.dropna().empty and not self.offline:
@@ -59,7 +59,8 @@ class Collector:
 def collect_markets(c: Collector) -> dict:
     tickers = {}
     for k, n, t, *_ in G.INDICES:
-        tickers[t] = ("index", k, n)
+        if t:
+            tickers[t] = ("index", k, n)
     for ccy, t, inv in G.FX:
         tickers[t] = ("fx", ccy, ccy)
     tickers[G.DXY] = ("fx", "USD", "US dollar index (DXY)")
@@ -74,7 +75,17 @@ def collect_markets(c: Collector) -> dict:
         if c.offline:
             s = c.try_(sid, lambda: c.offline_series(sid))
         else:
-            if t.startswith("LME:"):   # LME official prices: 3-month (what trading screens show as the LME price), cash if missing
+            if kind == "commodity" and not t.startswith("LME:"):
+                df = c.try_(sid, lambda: D.yahoo_ohlc(t, "10y"))
+                s = None
+                if df is not None and len(df) > 30:
+                    vol = df["volume"].tail(20)
+                    if vol.fillna(0).median() <= 0:
+                        c.errors[sid] = "no trading volume in the last 20 sessions: price not reliable, not shown"
+                        c.thin[t] = True
+                    else:
+                        s = df["close"]
+            elif t.startswith("LME:"):   # LME official prices: 3-month (what trading screens show as the LME price), cash if missing
                 s = c.try_(f"lme:{t[4:]}", lambda: (lambda df: df["m3"].fillna(df["cash"]).dropna())(D.lme(t[4:])))
             else:
                 s = c.try_(sid, lambda: D.yahoo(t, "10y"))
@@ -897,7 +908,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
             last = df.iloc[-1]
             lme_extra = {"lme": {"date": df.index[-1].strftime("%Y-%m-%d"), "cash": last["cash"], "m3": last["m3"], "stock": last["stock"],
                                  "stock_chg_1m": float(last["stock"] - df["stock"].iloc[-22]) if len(df) > 22 and pd.notna(last["stock"]) and pd.notna(df["stock"].iloc[-22]) else None}}
-        markets["commodities"].append({"key": k, "name": n, "ticker": t, "unit": unit, "group": grp, **lme_extra,
+        markets["commodities"].append({"key": k, "name": n, "ticker": t, "unit": unit, "group": grp, **lme_extra, "thin": bool(t and t in c.thin),
                                        "source": "LME official prices (via Westmetall)" if t and t.startswith("LME:") else f"Yahoo Finance ({t})" if t else None,
                                        "perf": D.perf(s) if s is not None else None, "series": D.ser(s, 520, 3) if s is not None else None})
     for k, n, t in G.PROXIES:
@@ -998,7 +1009,7 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
                                 freq="Daily", kind="Scheduled / estimated", confidence="High", note="US releases only; other countries' calendars are not yet covered."),
         "valuation": D.meta("multpl.com / Aswath Damodaran (NYU Stern)", "S&P 500 CAPE, P/E and yields; country risk premiums", "https://pages.stern.nyu.edu/~adamodar/",
                             freq="Monthly / semi-annual", kind="Actual (third-party compiled)", confidence="Medium",
-                            note="Third-party compilations of public data; latest month on multpl uses the current price and estimated earnings."),
+                            note="Third-party compilations of public data; completed months only (the current month's live estimate is excluded)."),
         "cftc": D.meta("CFTC", "Traders in Financial Futures", "https://publicreporting.cftc.gov/", freq="Weekly", kind="Actual", confidence="High"),
         "fred": D.meta("Federal Reserve Bank of St. Louis", "FRED (OECD long-term rates, ICE BofA spreads)", "https://fred.stlouisfed.org/", freq="Daily / monthly", kind="Actual", confidence="High",
                        note="Requires FRED_API_KEY."),

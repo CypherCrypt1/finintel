@@ -71,7 +71,7 @@ DRIVERS = {
         dict(key="trend", name="Price vs 200-day average (%)", layer=5,
              series="price:XAU", transform="vs_sma200", window=200, direction=+1, weight=0.10,
              horizons=H_FAST, bullish_when="Above the average", evidence_class="Fact",
-             source=("PAXG/USDT on Binance (gold proxy, 1 token = 1 troy oz)", "https://www.binance.com/en/trade/PAXG_USDT")),
+             source=("COMEX gold futures, front month (Yahoo Finance GC=F)", "https://www.cmegroup.com/markets/metals/precious/gold.html")),
     ],
     "BTC": [
         dict(key="liquidity", name="US net liquidity (Fed assets - RRP - TGA), 3-month % change", layer=1,
@@ -101,9 +101,6 @@ DRIVERS = {
         dict(key="cme", name="CME leveraged funds net position, 4-week change", layer=4,
              series="cftc:btc_lev_net", transform="diff", window=28, direction=+1, weight=0.03,
              horizons=H_MID, bullish_when="Short covering", evidence_class="Fact", source=CFTC),
-        dict(key="miner_rev", name="Miner revenue per EH/s (hashprice proxy), 3-month % change", layer=2,
-             series="calc:hashprice", transform="pct", window=91, direction=+1, weight=0.05,
-             horizons=H_MID, bullish_when="Miners profitable (no forced selling)", evidence_class="Estimate", source=MEMPOOL),
         dict(key="hashrate", name="Network hashrate, 3-month % change", layer=2,
              series="mempool:hashrate", transform="pct", window=91, direction=+1, weight=0.03,
              horizons=H_SLOW, bullish_when="Rising", evidence_class="Estimate", source=MEMPOOL),

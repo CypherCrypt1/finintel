@@ -32,7 +32,9 @@ def fake_ohlc(start, vol):
 def offline(monkeypatch):
     monkeypatch.setattr(connectors, "fred", lambda sid: walk(2.0, 0.01).rename(sid))
     monkeypatch.setattr(connectors, "fred_net_liquidity", lambda: walk(6000, 0.003))
-    monkeypatch.setattr(connectors, "binance_daily", lambda sym, days=1000: fake_ohlc(4000 if "PAXG" in sym else 70000, 0.012))
+    monkeypatch.setattr(connectors, "binance_daily", lambda sym, days=1000: fake_ohlc(70000, 0.012))
+    from finintel import global_data as _gd
+    monkeypatch.setattr(_gd, "yahoo_ohlc", lambda sym, rng="10y": fake_ohlc(4000, 0.012))
     monkeypatch.setattr(connectors, "binance_funding", lambda symbol="BTCUSDT": walk(0.01, 0.05).tail(900))
     weekly = pd.date_range("2023-01-03", "2026-11-10", freq="W-TUE")
     monkeypatch.setattr(connectors, "cftc_gold_mm_pct_oi", lambda: pd.Series(RNG.normal(25, 8, len(weekly)), index=weekly))
