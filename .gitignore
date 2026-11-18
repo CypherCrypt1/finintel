@@ -3,3 +3,5 @@ __pycache__/
 output/
 site/
 .venv/
+data/overlay.json
+data/_overlay_prev.json

@@ -739,6 +739,9 @@ def _age_days(prev, sec):
     return None if not d else (pd.Timestamp(NOW.date()) - pd.Timestamp(d)).days
 
 
+LAST_PX: dict = {}
+
+
 def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> dict:
     c = Collector(store, offline)
     t0 = time.time()
@@ -775,6 +778,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
 
     c.stage("start markets")
     px = collect_markets(c)
+    global LAST_PX
+    LAST_PX = px
     c.stage("start bis")
     rates, eer = collect_bis(c) if not offline else ({}, {})
     if not rates and prev.get("rates"):

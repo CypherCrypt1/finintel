@@ -320,6 +320,9 @@ def main(argv=None):
     if not args.no_global:
         if args.offline and gpath.exists():
             shutil.copy(gpath, site / "data" / "global.json")
+            ovp = data_dir / "overlay.json"   # local development only
+            if ovp.exists():
+                shutil.copy(ovp, site / "data" / "overlay.json")
         else:
             from . import global_build
             g = global_build.build(store, offline=args.offline, extra={"DFII10": loader.cache.get("fred:DFII10")}, calendar=calendar,
@@ -328,6 +331,23 @@ def main(argv=None):
             (site / "data" / "global.json").write_text(txt)
             if not args.offline:
                 gpath.write_text(txt)
+            # Overlay Lab: long histories. Yesterday's file is taken from the live site for carry-forward (not stored in git).
+            try:
+                from .overlay import build_overlay
+                prev_ov = data_dir / "_overlay_prev.json"
+                if not args.offline:
+                    try:
+                        import requests
+                        r = requests.get("https://cyphercrypt1.github.io/finintel/data/overlay.json", timeout=60)
+                        if r.ok:
+                            prev_ov.write_text(r.text)
+                    except Exception:
+                        pass
+                ov = build_overlay(global_build.LAST_PX, prev_path=str(prev_ov), offline=args.offline)
+                (site / "data" / "overlay.json").write_text(json.dumps(ov, separators=(",", ":")).replace("NaN", "null"))
+                prev_ov.unlink(missing_ok=True)
+            except Exception as e:  # never let the overlay break the daily build
+                print(f"[overlay] failed: {e}")
             if g["errors"]:
                 print(f"Global source errors ({len(g['errors'])}):")
                 for k, v in list(g["errors"].items())[:80]:
