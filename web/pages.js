@@ -1,3 +1,4 @@
+const MODEL_NOTE = `<div class="model-note"><b>Model output.</b> Scores, confidence, stances and levels are calculated by SOVEREIGN from the data on this site. They are a model's judgement, not facts or forecasts, and not investment advice.</div>`;
 /* SOVEREIGN page renderers. Every number comes from data/sovereign.json (engine) or reference/*.json (sourced, hand-entered). */
 "use strict";
 const HZ = [["short", "Short term", "1–5 days"], ["medium", "Medium term", "1–4 weeks"], ["long", "Long term", "1–12 months"]];
@@ -7,7 +8,7 @@ const cur = () => A(S.asset);
 /* ---------- shared blocks ---------- */
 function perfLine(a) { const p = a.performance; return `<span>1D ${pct(p.d1)}</span><span>1W ${pct(p.w1)}</span><span>1M ${pct(p.m1)}</span><span>YTD ${pct(p.ytd)}</span>`; }
 function priceKpi(a) { return kpi(`${assetName(a.symbol)} · ${a.symbol}/USD`, pxFmt(a.symbol, a.performance.last), perfLine(a)); }
-function decKpi(a, hz = "medium") { const d = a.decision[hz]; return kpi(`${assetName(a.symbol)} · combined (${hz})`, `<span class="lab ${labClass(d.label)}">${sgn(d.combined)}</span>`, `${labelHtml(d.label)}${d.contested ? " · contested" : ""} · confidence ${d.confidence.label}`); }
+function decKpi(a, hz = "medium") { const d = a.decision[hz]; return kpi(`${assetName(a.symbol)} · combined (${hz}) <span class="model-tag" title="Calculated by SOVEREIGN from the data on this site. A model judgement, not a fact or a forecast.">MODEL</span>`, `<span class="lab ${labClass(d.label)}">${sgn(d.combined)}</span>`, `${labelHtml(d.label)}${d.contested ? " · contested" : ""} · confidence ${d.confidence.label}`); }
 function driverTable(a, layers) {
   const rows = a.drivers.filter(d => !layers || layers.includes(d.layer)).sort((x, y) => (y.signal == null ? -9 : Math.abs(y.signal * y.weight)) - (x.signal == null ? -9 : Math.abs(x.signal * x.weight)));
   return table([{ t: "Driver" }, { t: "Latest reading" }, { t: "Signal (−2 to +2)" }, { t: "Weight", n: 1 }, { t: "Status" }], rows.map(d => [
@@ -17,12 +18,12 @@ function driverTable(a, layers) {
     d.signal == null ? statusPill("Missing") : `<span class="sm dim">bullish when ${esc(d.bullish_when.toLowerCase())}</span>`]));
 }
 function decisionMatrix(assets = S.data.assets, field = "combined") {
-  return table([{ t: "Asset" }, ...HZ.map(([, t, s]) => ({ t: `${t} <span class="dim">(${s})</span>` }))], assets.map(a => [
+  return MODEL_NOTE + table([{ t: "Asset" }, ...HZ.map(([, t, s]) => ({ t: `${t} <span class="dim">(${s})</span>` }))], assets.map(a => [
     `<b>${assetName(a.symbol)}</b>`, ...HZ.map(([k]) => { const d = a.decision[k]; const v = d[field]; return `${scoreRow(v)}<div class="sm" style="margin-top:3px">${field === "combined" ? labelHtml(d.label) + (d.contested ? ` <span class="dim">· contested</span>` : "") : `<span class="dim">${esc(field)}</span>`}</div>`; })]));
 }
 function outlookCard(o, a) {
   const d = a.decision[o.key];
-  return panel(`${esc(o.horizon)}`, `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">${labelHtml(o.label)}<span class="num">${sgn(o.combined)}</span></div>${sbar(o.combined)}
+  return panel(`${esc(o.horizon)} <span class="model-tag" title="Calculated by SOVEREIGN from the data on this site. A model judgement, not a fact or a forecast.">MODEL</span>`, `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">${labelHtml(o.label)}<span class="num">${sgn(o.combined)}</span></div>${sbar(o.combined)}
     <p style="margin:10px 0">${esc(o.thesis)}</p>${chip(o.evidence_class)}${chip("Confidence " + d.confidence.label + " (" + d.confidence.value + ")", true)}
     <div class="g g2" style="margin:10px 0 0"><div><h3>Supporting</h3>${listOr(o.supports)}</div><div><h3>Contradicting</h3>${listOr(o.contradicts)}</div>
     <div><h3>Would invalidate</h3>${listOr(o.invalidation)}</div><div><h3>Would confirm</h3>${listOr(o.confirmation)}</div></div>`, `${assetName(a.symbol)}`);

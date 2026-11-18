@@ -95,6 +95,9 @@ function route() {
   let html;
   try { html = fn ? fn(page) : pendingPage(page, {}); }
   catch (e) { console.error(e); html = header(page) + `<div class="pending">This page could not be drawn from the current data file: ${esc(e.message)}</div>`; }
+  const modelSec = ["decision", "technical"].includes(page.sec) || ["gold/overview", "bitcoin/overview", "command/dashboard", "gold/nowcast", "quant/scenario-modelling", "quant/backtesting", "quant/regimes"].includes(page.key);
+  if (modelSec && typeof MODEL_NOTE !== "undefined") html = html.includes("<!--/ph-->") ? html.replace("<!--/ph-->", MODEL_NOTE) : MODEL_NOTE + html;
+  if (typeof MODEL_NOTE !== "undefined") { const i = html.indexOf(MODEL_NOTE); if (i >= 0) html = html.slice(0, i + MODEL_NOTE.length) + html.slice(i + MODEL_NOTE.length).split(MODEL_NOTE).join(""); }   // show the note once per page
   document.getElementById("main").innerHTML = html + footer();
   document.title = `${page.title} — SOVEREIGN`;
   window.scrollTo(0, 0);
@@ -108,7 +111,7 @@ const mount = f => S.mounts.push(f);
 let UID = 0; const uid = () => "c" + (++UID);
 function header(page, lede = "", opts = {}) {
   const toggle = opts.asset ? `<div class="seg" role="group" aria-label="Asset">${["XAU", "BTC"].map(s => `<button data-asset="${s}" class="${S.asset === s ? "on" : ""}">${assetName(s)}</button>`).join("")}</div>` : "";
-  return `<div class="ph"><div><div class="crumb"><b>${page.code}</b> · ${esc(page.stitle)}</div><h1>${esc(page.title)}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div>${toggle}${opts.right || ""}</div>`;
+  return `<div class="ph"><div><div class="crumb"><b>${page.code}</b> · ${esc(page.stitle)}</div><h1>${esc(page.title)}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div>${toggle}${opts.right || ""}</div><!--/ph-->`;
 }
 const panel = (title, body, meta = "", cls = "") => `<section class="p ${cls}">${title ? `<div class="p-h"><h2>${title}</h2>${meta ? `<span class="meta">${meta}</span>` : ""}</div>` : ""}<div class="p-b ${cls.includes("flush") ? "flush" : ""}">${body}</div></section>`;
 const kpi = (k, v, s = "") => `<section class="p kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></section>`;
