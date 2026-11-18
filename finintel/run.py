@@ -311,6 +311,11 @@ def main(argv=None):
     web = ROOT / "web"
     if web.exists():
         shutil.copytree(web, site, dirs_exist_ok=True)
+        # cache-busting: every build gets new script/style URLs so browsers never run an old copy
+        import re as _re, time as _time
+        ix = site / "index.html"
+        ver = str(int(_time.time()))
+        ix.write_text(_re.sub(r'((?:src|href)="(?:app|pages|global|overlay)\.js|href="styles\.css)"', lambda m: m.group(1) + f'?v={ver}"', ix.read_text()))
     if ref_dir.exists():
         shutil.copytree(ref_dir, site / "reference", dirs_exist_ok=True)
     (site / "data").mkdir(exist_ok=True)
