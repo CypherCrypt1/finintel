@@ -109,7 +109,7 @@ def build_overlay(px: dict | None, prev_path: str | None = None, offline: bool =
         if s is None or len(s) < 30 or t not in meta:
             continue
         k, n, grp = meta[t]
-        rec = {"name": n, "group": grp, "unit": "price", "freq": "Daily", "source": f"Yahoo Finance ({t})", **_ser(s, 4)}
+        rec = {"name": n, "group": grp, "unit": "price", "freq": "Daily", "source": "LME official prices (Westmetall)" if t.startswith("LME:") else f"Yahoo Finance ({t})", **_ser(s, 4)}
         if t in OHLC_TICKERS and not offline:
             try:
                 df = D.yahoo_ohlc(t, "10y")

@@ -80,6 +80,50 @@ def yahoo_ohlc(symbol: str, rng: str = "10y") -> pd.DataFrame:
     raise ConnectorError(f"Yahoo OHLC {symbol}: {last}")
 
 
+LME_FIELDS = {"AL": "LME_Al_cash", "CU": "LME_Cu_cash", "NI": "LME_Ni_cash", "ZN": "LME_Zn_cash", "PB": "LME_Pb_cash", "SN": "LME_Sn_cash"}
+LME_CACHE: dict = {}
+
+
+def _lme_rows(field: str, year: int | None = None) -> list:
+    import re as _re
+    p = {"action": "table", "field": field}
+    if year:
+        p["year"] = year
+    t = get("https://www.westmetall.com/en/markdaten.php", p, timeout=60).text
+    out = []
+    for tr in _re.findall(r"<tr[^>]*>(.*?)</tr>", t, _re.S):
+        c = [_re.sub(r"<[^>]+>|\s+", " ", x).strip() for x in _re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, _re.S)]
+        if len(c) >= 3 and _re.match(r"\d{2}\. \w+ \d{4}", c[0]):
+            num = lambda x: float(x.replace(",", "")) if _re.match(r"^[\d,.]+$", x or "") else None  # noqa: E731
+            out.append((pd.to_datetime(c[0].replace(".", ""), format="%d %B %Y"), num(c[1]), num(c[2]), num(c[3]) if len(c) > 3 else None))
+    return out
+
+
+def lme(metal: str) -> pd.DataFrame:
+    """LME official prices (cash settlement, 3-month, warehouse stock) from Westmetall's public tables, US$/tonne."""
+    if metal in LME_CACHE:
+        return LME_CACHE[metal]
+    field = LME_FIELDS[metal]
+    rows = _lme_rows(field)
+    if not rows:
+        raise ConnectorError(f"LME {metal}: no rows")
+    seen = {r[0] for r in rows}
+    y = min(seen).year
+    for back in range(10):            # older years, if the site serves them
+        try:
+            more = [r for r in _lme_rows(field, y - back) if r[0] not in seen]
+        except Exception:
+            break
+        if not more:
+            break
+        rows += more
+        seen |= {r[0] for r in more}
+    df = pd.DataFrame(rows, columns=["date", "cash", "m3", "stock"]).set_index("date").sort_index()
+    df = df[~df.index.duplicated(keep="last")]
+    LME_CACHE[metal] = df
+    return df
+
+
 def perf(s: pd.Series) -> dict:
     s = s.dropna()
     last, t = float(s.iloc[-1]), s.index[-1]

@@ -74,7 +74,10 @@ def collect_markets(c: Collector) -> dict:
         if c.offline:
             s = c.try_(sid, lambda: c.offline_series(sid))
         else:
-            s = c.try_(sid, lambda: D.yahoo(t, "10y"))
+            if t.startswith("LME:"):   # LME official prices: 3-month (what trading screens show as the LME price), cash if missing
+                s = c.try_(f"lme:{t[4:]}", lambda: (lambda df: df["m3"].fillna(df["cash"]).dropna())(D.lme(t[4:])))
+            else:
+                s = c.try_(sid, lambda: D.yahoo(t, "10y"))
             if (s is None or len(s) <= 5) and t in G.TICKER_FALLBACK:
                 fb, fbn = G.TICKER_FALLBACK[t]
                 s = c.try_(f"yahoo:{fb}", lambda: D.yahoo(fb, "10y"))
@@ -887,7 +890,14 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
                                    "annual": [{"year": int(y.year), "ret": round(float(v), 2)} for y, v in (s.resample("YE").last().pct_change().dropna() * 100).items()] if s is not None else []})
     for k, n, t, unit, grp in G.COMMODITIES:
         s = px.get(t) if t else None
-        markets["commodities"].append({"key": k, "name": n, "ticker": t, "unit": unit, "group": grp,
+        lme_extra = {}
+        if t and t.startswith("LME:") and t[4:] in D.LME_CACHE:
+            df = D.LME_CACHE[t[4:]]
+            last = df.iloc[-1]
+            lme_extra = {"lme": {"date": df.index[-1].strftime("%Y-%m-%d"), "cash": last["cash"], "m3": last["m3"], "stock": last["stock"],
+                                 "stock_chg_1m": float(last["stock"] - df["stock"].iloc[-22]) if len(df) > 22 and pd.notna(last["stock"]) and pd.notna(df["stock"].iloc[-22]) else None}}
+        markets["commodities"].append({"key": k, "name": n, "ticker": t, "unit": unit, "group": grp, **lme_extra,
+                                       "source": "LME official prices (via Westmetall)" if t and t.startswith("LME:") else f"Yahoo Finance ({t})" if t else None,
                                        "perf": D.perf(s) if s is not None else None, "series": D.ser(s, 520, 3) if s is not None else None})
     for k, n, t in G.PROXIES:
         s = px.get(t)
