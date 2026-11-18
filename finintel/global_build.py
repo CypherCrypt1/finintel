@@ -743,6 +743,7 @@ def _age_days(prev, sec):
 
 
 LAST_PX: dict = {}
+LAST_PROXIED: dict = {}
 
 
 def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> dict:
@@ -781,8 +782,8 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
 
     c.stage("start markets")
     px = collect_markets(c)
-    global LAST_PX
-    LAST_PX = px
+    global LAST_PX, LAST_PROXIED
+    LAST_PX, LAST_PROXIED = px, c.proxied
     c.stage("start bis")
     rates, eer = collect_bis(c) if not offline else ({}, {})
     if not rates and prev.get("rates"):
@@ -935,6 +936,11 @@ def build(store, offline=False, extra=None, calendar=None, prev_path=None) -> di
             r.setdefault("series", {"dates": [], "values": []})
             r["series"]["dates"] = r["series"]["dates"] + [d["date"][:7]]
             r["series"]["values"] = r["series"]["values"] + [d["rate"]]
+    # an index shown through a fund that tracks it: % changes are valid, the price level is the fund's, so hide it
+    for it in markets["indices"]:
+        if it.get("perf") and it.get("ticker") in c.proxied:
+            it["perf"] = {**it["perf"], "last": None, "hi52": None, "lo52": None}
+            it["name_note"] = f"tracked via {c.proxied[it['ticker']]['name']}"
     # a price feed that stopped updating must not look current: blank its performance and say when it stopped
     cutoff = (NOW - pd.Timedelta(days=21)).strftime("%Y-%m-%d")
     for grp in ("indices", "commodities", "proxies", "sectors", "yields"):

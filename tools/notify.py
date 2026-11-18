@@ -73,10 +73,10 @@ def rate_alerts(prev, cur):
 def main():
     prev_r, prev_g = load(sys.argv[1]), load(sys.argv[2])
     cur_r, cur_g = load("data/last_results.json"), load("data/global.json")
-    if not prev_r or not cur_r:
+    if not prev_g or not cur_g:
         print("[notify] no previous run to compare with")
         return
-    scores, rates, moves = score_alerts(prev_r, cur_r), rate_alerts(prev_g, cur_g) if prev_g else [], market_alerts(cur_g)
+    scores, rates, moves = [], rate_alerts(prev_g, cur_g) if prev_g else [], market_alerts(cur_g)
     if not (scores or rates or moves):
         print("[notify] nothing material changed")
         return

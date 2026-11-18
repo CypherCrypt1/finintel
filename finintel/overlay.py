@@ -96,6 +96,11 @@ def build_overlay(px: dict | None, prev_path: str | None = None, offline: bool =
     meta = {}
     for i in G.INDICES:
         meta[i[2]] = (i[0], i[1], "Equity indices")
+    from . import global_build as _gb
+    for t, pinfo in getattr(_gb, "LAST_PROXIED", {}).items():   # index served by a tracking fund: say so, and file it under the fund's ticker
+        if t in meta:
+            k, n, g = meta[t]
+            meta[t] = (k, f"{n} (via {pinfo['name']}, fund price)", g)
     meta[G.DXY] = ("dxy", "US dollar index (DXY)", "Currencies")
     for c in G.COMMODITIES:
         meta[c[2]] = (c[0], c[1], "Commodities")

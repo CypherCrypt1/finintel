@@ -16,37 +16,32 @@ const assetName = sym => sym === "XAU" ? "Gold" : "Bitcoin";
 const pxFmt = (sym, v) => fmt(v, sym === "BTC" ? 0 : 2);
 
 /* ---------------- navigation ---------------- */
-const NAV = [
-  ["command", "A", "Command Centre", [["global-dashboard", "Global Markets Dashboard"], ["dashboard", "Gold & Bitcoin Dashboard"], ["market-overview", "Market Overview"], ["what-changed", "What Changed Today?"], ["calendar", "Global Economic Calendar"], ["alerts", "Intelligence Alerts"], ["briefings", "Research Briefings"]]],
-  ["economies", "B", "Global Economies", [["comparison", "Economic Comparison"], ["monthly", "Monthly Indicators (OECD)"], ["us", "United States"], ["cn", "China"], ["jp", "Japan"], ["de", "Germany"], ["fr", "France"], ["in", "India"], ["gb", "United Kingdom"], ["ca", "Canada"], ["ch", "Switzerland"], ["ru", "Russia"]]],
-  ["equities", "C", "Global Equities", [["dashboard", "Global Equity Dashboard"], ["americas", "Americas"], ["europe", "Europe"], ["asia", "Asia-Pacific"], ["index", "Index Detail"], ["valuation", "Valuation & Fundamentals"], ["sectors", "Sector Intelligence"]]],
-  ["currencies", "D", "Currency Intelligence", [["dashboard", "Currency Dashboard"], ["ranking", "Currency Strength Ranking"], ["relative", "Relative Strength Matrix"], ["detail", "Currency Detail"], ["valuation", "Valuation: PPP & REER"], ["differentials", "Rate & Inflation Differentials"], ["positioning", "Positioning & Volatility"], ["asset-matrix", "Currency vs Asset Matrix"]]],
-  ["commodities", "E", "Commodity Intelligence", [["overview", "Commodity Dashboard"], ["energy", "Energy"], ["metals", "Metals"], ["agriculture", "Agriculture"], ["detail", "Commodity Detail"], ["fundamentals", "Supply & Demand Fundamentals", 1]]],
-  ["fiscal", "F", "Government & Fiscal", [["comparison", "Fiscal Comparison"], ["debt", "Debt & Deficits"], ["revenue", "Revenue & Expenditure"], ["spending", "Interest, Defence & Subsidies"], ["sovereign-risk", "Sovereign Credit Risk"], ["country", "Country Fiscal Profile"], ["debt-structure", "Debt Maturity & Ownership", 1]]],
-  ["trade", "G", "International Trade", [["overview", "Trade Overview"], ["partners", "Top Trading Partners"], ["bilateral", "Bilateral Trade Matrix"], ["products", "Products & Concentration"], ["dependency", "Strategic Dependencies"], ["tariffs", "Tariffs & Restrictions"]]],
-  ["flows", "H", "Capital & Investment Flows", [["overview", "Capital Flow Overview"], ["map", "World Investment Map"], ["investor", "By Investor Country"], ["destination", "By Destination Country"], ["positions", "Flows vs Positions"], ["iip", "International Investment Position"], ["tic", "Foreign Holders of US Treasuries"], ["banking", "Cross-Border Banking"], ["institutions", "Sovereign Wealth & Pension Funds", 1]]],
-  ["corporate", "I", "Corporate Intelligence", [["database", "Corporate Database"], ["company", "Company Profile"], ["coverage", "Coverage by Country"], ["exposure", "Investment Exposure Report"], ["country-reports", "Country Investment Reports"]]],
-  ["credit", "J", "Credit & Banking", [["overview", "Credit & Banking Overview"], ["private-credit", "Private Sector Credit"], ["banks", "Bank Health"], ["spreads", "Credit Spreads & High Yield"], ["stress", "Banking Stress Indicators"]]],
-  ["relationships", "K", "Macro Relationship Engine", [["overview", "Relationship Engine"], ["usd-commodities", "USD → Commodities"], ["real-yields-gold", "Real Yields → Gold"], ["china-copper", "China Industry → Copper"], ["japan-tightening", "BoJ Tightening → Capital Flows"], ["europe-germany", "Europe Industry → German Equities"], ["oil-india", "Oil → India"], ["us-deficit", "US Deficit → Treasury Yields"], ["fdi-currency", "Foreign Investment → FX & Equities"], ["explorer", "Relationship Explorer"]]],
-  ["gold", "L", "Gold Intelligence", [["overview", "Gold Overview"], ["fundamentals", "Gold Fundamental Analysis"], ["supply", "Global Gold Supply", 1], ["demand", "Global Gold Demand"], ["balance", "Gold Supply & Demand Balance", 1], ["nowcast", "Daily / Weekly Gold Nowcasting"], ["mining", "Gold Mining Intelligence", 1], ["cost-curve", "Mining Cost Curve", 1], ["central-banks", "Central Bank Gold Reserves"], ["etf", "Gold ETF Intelligence"], ["trade", "International Gold Trade", 1], ["physical", "Gold Physical Market", 1], ["technical", "Gold Technical Analysis"], ["scenarios", "Gold Price Scenarios"]]],
-  ["bitcoin", "M", "Bitcoin Intelligence", [["overview", "Bitcoin Overview"], ["fundamentals", "Bitcoin Fundamentals"], ["network", "Bitcoin Network Intelligence"], ["mining", "Bitcoin Mining Intelligence"], ["miner-economics", "Bitcoin Miner Economics"], ["etf", "Bitcoin ETF Flows"], ["corporate", "Corporate Bitcoin Holdings", 1], ["exchanges", "Exchange Reserves & Flows"], ["whales", "Whale & Institutional Activity", 1], ["technical", "Bitcoin Technical Analysis"], ["scenarios", "Bitcoin Price Scenarios"]]],
-  ["macro", "N", "US Macro Intelligence", [["central-banks", "Central Bank Policies"], ["rates", "Interest Rates"], ["yields", "Government Bond Yields"], ["real-rates", "Real Interest Rates"], ["inflation", "Inflation"], ["dxy", "US Dollar Index"], ["liquidity", "Global Liquidity"], ["growth", "Economic Growth"], ["employment", "Employment"], ["recession", "Recession Indicators"], ["geopolitics", "Geopolitical Intelligence"]]],
-  ["institutional", "O", "Institutional Intelligence", [["cb-activity", "Central Bank Activity"], ["investments", "Institutional Investments"], ["company-financials", "Public Company Financials"], ["balance-sheets", "Corporate Balance Sheets"], ["holdings", "Institutional Asset Holdings"], ["ownership", "Ownership Changes", 1], ["flows", "Major Investment Flows"]]],
-  ["quant", "P", "Quantitative Research", [["historical", "Historical Market Analysis"], ["correlations", "Asset Correlations"], ["volatility", "Volatility Analysis"], ["statistics", "Statistical Research"], ["regimes", "Market Regimes"], ["backtesting", "Backtesting"], ["scenario-modelling", "Scenario Modelling"], ["forecast-accuracy", "Forecast Accuracy"]]],
-  ["technical", "Q", "Technical Intelligence", [["multi-timeframe", "Multi-Timeframe Charts"], ["structure", "Market Structure"], ["support-resistance", "Support & Resistance"], ["trend", "Trend Analysis"], ["momentum", "Momentum Indicators"], ["volume", "Volume Analysis"], ["liquidity", "Liquidity Analysis"], ["signals", "Technical Signals & Confirmations"]]],
-  ["decision", "R", "Decision Intelligence", [["fundamental-scores", "Fundamental Scores"], ["technical-scores", "Technical Scores"], ["combined", "Combined Intelligence Score"], ["short", "Short-Term Outlook"], ["medium", "Medium-Term Outlook"], ["long", "Long-Term Outlook"], ["scenarios", "Bullish / Base / Bearish Scenarios"], ["forecast-history", "Forecast History"], ["confidence", "Model Confidence"]]],
-  ["tools", "S", "Trading Tools", [["overlay", "Chart Lab (TradingView-style)"], ["position-size", "Position Size Calculator"], ["risk", "Risk Management Calculator"], ["risk-reward", "Risk-to-Reward Calculator"], ["leverage", "Leverage & Margin Calculator"], ["dca", "DCA Calculator"], ["average-entry", "Average Entry Calculator"], ["compounding", "Compounding Calculator"], ["multi-trade", "Multi-Trade Risk Simulator"]]],
-  ["platform", "T", "Platform", [["coverage", "Data Coverage & Transparency"], ["methodology", "Research Methodology"], ["sources", "Data Sources"], ["models", "Model Documentation"], ["data-quality", "Data Quality & Reliability"], ["about", "About SOVEREIGN"], ["settings", "Settings"]]],
+const NAV = [   // [group id, letter, title, [[page key, title, pending?, hidden?]]]; hidden pages are reachable by link but not listed
+  ["today", "A", "Today", [["command/global-dashboard", "Global Dashboard"], ["command/calendar", "Economic Calendar"]]],
+  ["countries", "B", "Countries", [["economies/comparison", "Country Comparison"], ["economies/monthly", "Monthly Indicators"], ["economies/us", "Country Profiles"],
+    ...["cn", "jp", "de", "fr", "in", "gb", "ca", "ch"].map(k => [`economies/${k}`, { cn: "China", jp: "Japan", de: "Germany", fr: "France", in: "India", gb: "United Kingdom", ca: "Canada", ch: "Switzerland" }[k], 0, 1]),
+    ["fiscal/comparison", "Government Debt & Deficits"], ["fiscal/country", "Fiscal Profile", 0, 1], ["trade/overview", "Trade"], ["trade/partners", "Trade Partners"], ["trade/dependency", "Trade Dependencies"]]],
+  ["us", "C", "US Economy", [["macro/central-banks", "Central Banks"], ["macro/rates", "Interest Rates"], ["macro/yields", "Yield Curve"], ["macro/inflation", "Inflation"],
+    ["macro/employment", "Jobs"], ["macro/growth", "Growth"], ["macro/liquidity", "Liquidity"], ["macro/recession", "Recession Risk"]]],
+  ["markets", "D", "Markets", [["equities/dashboard", "Stock Markets"], ["equities/valuation", "Valuation"], ["equities/sectors", "US Sectors"], ["equities/index", "Index Detail", 0, 1],
+    ["currencies/dashboard", "Currencies"], ["currencies/differentials", "Rate & Inflation Gaps"], ["currencies/detail", "Currency Detail", 0, 1],
+    ["commodities/overview", "Commodities"], ["commodities/detail", "Commodity Detail", 0, 1], ["credit/overview", "Credit"]]],
+  ["flows", "E", "Capital Flows", [["flows/map", "World Investment Map"], ["flows/investor", "By Investor Country"], ["flows/destination", "By Destination Country"],
+    ["flows/iip", "Foreign Assets & Debts"], ["flows/tic", "Who Holds US Treasuries"], ["flows/banking", "Cross-Border Banking"]]],
+  ["research", "F", "Research", [["relationships/overview", "Macro Relationships"],
+    ...[["usd-commodities", "USD → Commodities"], ["real-yields-gold", "Real Yields → Gold"], ["china-copper", "China Industry → Copper"], ["japan-tightening", "BoJ Tightening → Capital Flows"], ["europe-germany", "Europe Industry → German Equities"], ["oil-india", "Oil → India"], ["us-deficit", "US Deficit → Treasury Yields"], ["fdi-currency", "Foreign Investment → FX & Equities"]].map(([k, t]) => [`relationships/${k}`, t, 0, 1]),
+    ["tools/overlay", "Chart Lab"]]],
+  ["data", "G", "Data", [["platform/coverage", "Sources & Coverage"]]],
 ];
 const PAGES = {}; // filled by pages.js: PAGES["gold/overview"] = ctx => html
-const allPages = () => NAV.flatMap(([sec, code, stitle, items]) => items.map(([id, title, pend]) => ({ sec, code, stitle, id, title, pend, key: `${sec}/${id}` })));
+const allPages = () => NAV.flatMap(([grp, code, stitle, items]) => items.map(([key, title, pend, hidden]) => ({ sec: key.split("/")[0], grp, code, stitle, id: key.split("/")[1], title, pend, hidden, key })));
 
 function buildNav() {
   const closed = JSON.parse(lsGet("sov.closed", "[]"));
   document.getElementById("side").innerHTML = NAV.map(([sec, code, title, items]) => `
     <div class="grp ${closed.includes(sec) ? "closed" : ""}" data-sec="${sec}">
       <button class="grp-h" aria-expanded="${!closed.includes(sec)}"><span class="code">${code}</span>${esc(title)}<span class="chev">▾</span></button>
-      <div class="items">${items.map(([id, t, pend]) => `<a href="#/${sec}/${id}" data-key="${sec}/${id}">${esc(t)}${pend ? `<span class="pend" title="Data collection pending">pending</span>` : ""}</a>`).join("")}</div>
+      <div class="items">${items.filter(x => !x[3]).map(([key, t, pend]) => `<a href="#/${key}" data-key="${key}">${esc(t)}${pend ? `<span class="pend" title="Data collection pending">pending</span>` : ""}</a>`).join("")}</div>
     </div>`).join("");
   document.querySelectorAll(".grp-h").forEach(b => b.onclick = () => {
     const g = b.parentElement; g.classList.toggle("closed"); b.setAttribute("aria-expanded", !g.classList.contains("closed"));
@@ -87,8 +82,10 @@ function route() {
   const key = parts.slice(0, 2).join("/");
   const base = allPages().find(p => p.key === key) || allPages()[0];
   const page = { ...base, param: parts.length > 2 ? decodeURIComponent(parts.slice(2).join("/")) : null };
-  document.querySelectorAll(".items a").forEach(a => a.classList.toggle("on", a.dataset.key === page.key));
-  const grp = document.querySelector(`.grp[data-sec="${page.sec}"]`); if (grp) grp.classList.remove("closed");
+  if (page.key !== key && location.hash) history.replaceState(null, "", `#/${page.key}`);   // removed or unknown page: show the dashboard
+  const navKey = page.hidden ? (page.sec === "economies" ? "economies/us" : page.sec === "relationships" ? "relationships/overview" : page.key) : page.key;
+  document.querySelectorAll(".items a").forEach(a => a.classList.toggle("on", a.dataset.key === navKey || (page.sec === "economies" && page.hidden && a.dataset.key === "economies/us")));
+  const grp = document.querySelector(`.grp[data-sec="${page.grp}"]`); if (grp) grp.classList.remove("closed");
   document.body.classList.remove("nav-open");
   S.charts.forEach(c => { try { c.remove(); } catch { /* chart already removed */ } }); S.charts = []; S.mounts = [];
   const fn = PAGES[page.key];
@@ -96,10 +93,25 @@ function route() {
   try { html = fn ? fn(page) : pendingPage(page, {}); }
   catch (e) { console.error(e); html = header(page) + `<div class="pending">This page could not be drawn from the current data file: ${esc(e.message)}</div>`; }
   document.getElementById("main").innerHTML = html + footer();
+  tidy(document.getElementById("main"));
   document.title = `${page.title} — SOVEREIGN`;
   window.scrollTo(0, 0);
   whenLWC(() => S.mounts.forEach(f => { try { f(); } catch (e) { console.error(e); } }));
   document.querySelectorAll("[data-asset]").forEach(b => b.onclick = () => { S.asset = b.dataset.asset; lsSet("sov.asset", S.asset); route(); });
+}
+// Pages written before the menu was trimmed may still link to removed pages or carry "Pending" notices: fix both on render.
+const LINK_MAP = { "currencies/ranking": "currencies/dashboard", "currencies/relative": "currencies/dashboard", "currencies/asset-matrix": "tools/overlay", "flows/overview": "flows/map",
+  "flows/positions": "flows/map", "fiscal/debt": "fiscal/comparison", "fiscal/revenue": "fiscal/comparison", "fiscal/spending": "fiscal/comparison", "trade/bilateral": "trade/partners",
+  "trade/products": "trade/overview", "equities/americas": "equities/dashboard", "equities/europe": "equities/dashboard", "equities/asia": "equities/dashboard",
+  "commodities/energy": "commodities/overview", "commodities/metals": "commodities/overview", "commodities/agriculture": "commodities/overview", "credit/spreads": "credit/overview",
+  "macro/real-rates": "macro/rates", "macro/dxy": "currencies/dashboard", "command/market-overview": "command/global-dashboard" };
+function tidy(root) {
+  const valid = new Set(allPages().map(p => p.key));
+  root.querySelectorAll('a[href^="#/"]').forEach(a => { const parts = a.getAttribute("href").slice(2).split("/"), k = parts.slice(0, 2).join("/");
+    if (valid.has(k)) return;
+    if (LINK_MAP[k]) { a.setAttribute("href", "#/" + LINK_MAP[k]); return; }
+    const span = document.createElement("span"); span.innerHTML = a.innerHTML.replace(/\s*[→›]\s*$/, ""); a.replaceWith(span); });
+  root.querySelectorAll(".pending").forEach(p => { if (/^\s*Pending\b/.test(p.textContent)) p.remove(); });
 }
 function whenLWC(cb) { if (window.LightweightCharts) cb(); else window.addEventListener("load", cb, { once: true }); }
 const mount = f => S.mounts.push(f);
